@@ -2,23 +2,31 @@ import { useState } from 'react';
 import { GraduationCap, Mail, Lock, ArrowRight } from 'lucide-react';
 
 interface LoginPageProps {
-  onLogin: (role: string) => void;
+  onLogin: (email: string, password: string) => Promise<unknown>;
 }
 
 export function LoginPage({ onLogin }: LoginPageProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [selectedRole, setSelectedRole] = useState<'admin' | 'teacher' | 'student'>('student');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onLogin(selectedRole);
+    setError('');
+    setLoading(true);
+    try {
+      await onLogin(email, password);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Login failed');
+      setLoading(false);
+    }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-4">
       <div className="w-full max-w-md">
-        {/* Logo and Title */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-indigo-600 rounded-2xl mb-4">
             <GraduationCap className="w-10 h-10 text-white" />
@@ -27,12 +35,10 @@ export function LoginPage({ onLogin }: LoginPageProps) {
           <p className="text-gray-600">Unified academic management system</p>
         </div>
 
-        {/* Login Card */}
         <div className="bg-white rounded-2xl shadow-xl p-8">
           <h2 className="text-2xl font-semibold text-gray-900 mb-6">Welcome Back</h2>
-          
+
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Role Selection */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-3">Select Role</label>
               <div className="grid grid-cols-3 gap-3">
@@ -51,9 +57,9 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                   </button>
                 ))}
               </div>
+              <p className="mt-2 text-xs text-gray-500">Role is verified after login.</p>
             </div>
 
-            {/* Email Input */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
               <div className="relative">
@@ -69,7 +75,6 @@ export function LoginPage({ onLogin }: LoginPageProps) {
               </div>
             </div>
 
-            {/* Password Input */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
               <div className="relative">
@@ -78,14 +83,13 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+                  placeholder="• • • • • • • •"
                   className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none transition-all"
                   required
                 />
               </div>
             </div>
 
-            {/* Remember Me & Forgot Password */}
             <div className="flex items-center justify-between">
               <label className="flex items-center">
                 <input type="checkbox" className="w-4 h-4 text-indigo-600 border-gray-300 rounded" />
@@ -96,20 +100,25 @@ export function LoginPage({ onLogin }: LoginPageProps) {
               </a>
             </div>
 
-            {/* Login Button */}
+            {error && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+                {error}
+              </div>
+            )}
+
             <button
               type="submit"
-              className="w-full bg-indigo-600 text-white py-3 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2 group"
+              disabled={loading}
+              className="w-full bg-indigo-600 text-white py-3 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2 group disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              Sign In
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              {loading ? 'Signing In...' : 'Sign In'}
+              {!loading && <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />}
             </button>
           </form>
 
-          {/* Demo Credentials */}
           <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
             <p className="text-sm text-blue-800 font-medium mb-2">Demo Credentials:</p>
-            <p className="text-xs text-blue-700">Select a role above and click "Sign In" to view the UI reference</p>
+            <p className="text-xs text-blue-700">Use the admin account created by the backend seed.</p>
           </div>
         </div>
       </div>

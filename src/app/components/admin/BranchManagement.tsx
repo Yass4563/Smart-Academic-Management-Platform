@@ -1,27 +1,97 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Plus, Edit, Trash2, Building2, Users, BookOpen, Search } from 'lucide-react';
-
-const branchesData = [
-  { id: 1, name: 'DUT Informatique', code: 'DUT-INFO', students: 342, modules: 28, created: '2023-09-15' },
-  { id: 2, name: 'DUT Télécommunications', code: 'DUT-TELECOM', students: 287, modules: 24, created: '2023-09-15' },
-  { id: 3, name: 'DUT Génie Civil', code: 'DUT-GC', students: 198, modules: 22, created: '2023-09-15' },
-  { id: 4, name: 'DUT Génie Électrique', code: 'DUT-GE', students: 245, modules: 26, created: '2023-09-15' },
-  { id: 5, name: 'DUT Génie Mécanique', code: 'DUT-GM', students: 176, modules: 20, created: '2024-01-10' },
-];
+import { useAuth } from '../../lib/auth';
+import { createBranch, deleteBranch, getBranches, updateBranch } from '../../lib/api';
+import type { Branch } from '../../types';
 
 export function BranchManagement() {
-  const [showAddModal, setShowAddModal] = useState(false);
+  const { token } = useAuth();
+  const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [formData, setFormData] = useState({ name: '', code: '', description: '' });
+  const [formData, setFormData] = useState({ name: '', code: '' });
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [editingId, setEditingId] = useState<number | null>(null);
 
-  const filteredBranches = branchesData.filter(branch =>
-    branch.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    branch.code.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredBranches = useMemo(() => {
+    return branches.filter(branch =>
+      branch.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      branch.code.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [branches, searchTerm]);
+
+  useEffect(() => {
+    if (!token) {
+      return;
+    }
+    const load = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const data = await getBranches(token);
+        setBranches(data.branches || []);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load branches');
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [token]);
+
+  const openCreate = () => {
+    setEditingId(null);
+    setFormData({ name: '', code: '' });
+    setShowModal(true);
+  };
+
+  const openEdit = (branch: Branch) => {
+    setEditingId(branch.id);
+    setFormData({ name: branch.name, code: branch.code });
+    setShowModal(true);
+  };
+
+  const handleSave = async () => {
+    if (!token) {
+      return;
+    }
+    if (!formData.name.trim() || !formData.code.trim()) {
+      setError('Name and code are required.');
+      return;
+    }
+    setError('');
+    try {
+      if (editingId) {
+        await updateBranch(token, editingId, formData);
+        setBranches((prev) => prev.map((b) => (b.id === editingId ? { ...b, ...formData } : b)));
+      } else {
+        const result = await createBranch(token, formData);
+        setBranches((prev) => [...prev, { id: result.id, ...formData }]);
+      }
+      setShowModal(false);
+      setFormData({ name: '', code: '' });
+      setEditingId(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save branch');
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!token) {
+      return;
+    }
+    setError('');
+    try {
+      await deleteBranch(token, id);
+      setBranches((prev) => prev.filter((branch) => branch.id !== id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete branch');
+    }
+  };
 
   return (
     <div className="space-y-6">
-      {/* Header Actions */}
       <div className="flex items-center justify-between">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -34,7 +104,7 @@ export function BranchManagement() {
           />
         </div>
         <button
-          onClick={() => setShowAddModal(true)}
+          onClick={openCreate}
           className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
         >
           <Plus className="w-5 h-5" />
@@ -42,60 +112,76 @@ export function BranchManagement() {
         </button>
       </div>
 
-      {/* Branches Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredBranches.map((branch) => (
-          <div key={branch.id} className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center">
-                  <Building2 className="w-6 h-6 text-indigo-600" />
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="text-sm text-gray-500">Loading branches...</div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredBranches.map((branch) => (
+            <div key={branch.id} className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center">
+                    <Building2 className="w-6 h-6 text-indigo-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900">{branch.name}</h3>
+                    <p className="text-sm text-gray-600">{branch.code}</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900">{branch.name}</h3>
-                  <p className="text-sm text-gray-600">{branch.code}</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => openEdit(branch)}
+                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    <Edit className="w-4 h-4 text-gray-600" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(branch.id)}
+                    className="p-2 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4 text-red-600" />
+                  </button>
                 </div>
               </div>
-              <div className="flex gap-2">
-                <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                  <Edit className="w-4 h-4 text-gray-600" />
-                </button>
-                <button className="p-2 hover:bg-red-50 rounded-lg transition-colors">
-                  <Trash2 className="w-4 h-4 text-red-600" />
-                </button>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between py-2 border-t border-gray-100">
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <Users className="w-4 h-4" />
+                    <span className="text-sm">Students</span>
+                  </div>
+                  <span className="font-semibold text-gray-900">0</span>
+                </div>
+                <div className="flex items-center justify-between py-2 border-t border-gray-100">
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <BookOpen className="w-4 h-4" />
+                    <span className="text-sm">Modules</span>
+                  </div>
+                  <span className="font-semibold text-gray-900">0</span>
+                </div>
+              </div>
+
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <p className="text-xs text-gray-500">ID: {branch.id}</p>
               </div>
             </div>
+          ))}
+        </div>
+      )}
 
-            <div className="space-y-3">
-              <div className="flex items-center justify-between py-2 border-t border-gray-100">
-                <div className="flex items-center gap-2 text-gray-600">
-                  <Users className="w-4 h-4" />
-                  <span className="text-sm">Students</span>
-                </div>
-                <span className="font-semibold text-gray-900">{branch.students}</span>
-              </div>
-              <div className="flex items-center justify-between py-2 border-t border-gray-100">
-                <div className="flex items-center gap-2 text-gray-600">
-                  <BookOpen className="w-4 h-4" />
-                  <span className="text-sm">Modules</span>
-                </div>
-                <span className="font-semibold text-gray-900">{branch.modules}</span>
-              </div>
-            </div>
-
-            <div className="mt-4 pt-4 border-t border-gray-100">
-              <p className="text-xs text-gray-500">Created: {branch.created}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Add Branch Modal */}
-      {showAddModal && (
+      {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl max-w-md w-full p-6">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-6">Add New Branch</h2>
-            
+            <h2 className="text-2xl font-semibold text-gray-900 mb-6">
+              {editingId ? 'Edit Branch' : 'Add New Branch'}
+            </h2>
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Branch Name</label>
@@ -118,35 +204,20 @@ export function BranchManagement() {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none"
                 />
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Brief description of the branch"
-                  rows={3}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none"
-                />
-              </div>
             </div>
 
             <div className="flex gap-3 mt-6">
               <button
-                onClick={() => setShowAddModal(false)}
+                onClick={() => setShowModal(false)}
                 className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  // Handle save
-                  setShowAddModal(false);
-                  setFormData({ name: '', code: '', description: '' });
-                }}
+                onClick={handleSave}
                 className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
               >
-                Create Branch
+                {editingId ? 'Save Changes' : 'Create Branch'}
               </button>
             </div>
           </div>

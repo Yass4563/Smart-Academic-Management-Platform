@@ -1,0 +1,62 @@
+# Smart Academic Management Platform - Backend
+
+## Setup
+
+1. Create a MySQL database named `smart_academic`.
+2. Copy `backend/.env.example` to `backend/.env` and fill values.
+3. Install dependencies:
+
+```bash
+cd backend
+npm install
+```
+
+4. Initialize schema + create admin user:
+
+```bash
+npm run seed
+```
+
+5. Start the API:
+
+```bash
+npm run dev
+```
+
+## Notes
+- `UPLOAD_DIR` defaults to `src/uploads` and is served at `/uploads`.
+- Announcements will auto-send to Telegram if `TELEGRAM_BOT_TOKEN` and `TELEGRAM_DEFAULT_CHAT_ID` are set.
+- Seed admin defaults to `admin@school.local / Admin123!` unless overridden by env.
+
+## Core Routes
+
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+- `GET /api/admin/branches`
+- `POST /api/admin/branches`
+- `GET /api/admin/modules`
+- `POST /api/admin/modules`
+- `POST /api/admin/teachers`
+- `GET /api/admin/teachers`
+- `POST /api/admin/students/import`
+- `GET /api/admin/students`
+- `GET /api/student/profile`
+- `GET /api/student/modules`
+- `GET /api/student/sessions`
+- `POST /api/student/attendance/scan`
+- `POST /api/student/feedback`
+- `POST /api/student/pfe/submit`
+- `GET /api/teacher/modules`
+- `POST /api/teacher/sessions`
+- `GET /api/teacher/modules/:moduleId/sessions`
+- `POST /api/teacher/qr`
+- `GET /api/teacher/sessions/:sessionId/attendance`
+- `GET /api/teacher/sessions/:sessionId/attendance/export?format=csv|pdf`
+- `GET /api/teacher/sessions/:sessionId/feedback`
+- `GET /api/teacher/modules/:moduleId/feedback-summary`
+- `GET /api/teacher/projects`
+- `POST /api/teacher/projects/deadline`
+- `POST /api/teacher/projects/jury`
+- `POST /api/teacher/projects/grade`
+- `GET /api/announcements`
+- `POST /api/announcements`

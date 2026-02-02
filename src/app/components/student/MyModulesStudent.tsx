@@ -1,70 +1,77 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { BookOpen, User, Calendar, MessageSquare, Star } from 'lucide-react';
+import { useAuth } from '../../lib/auth';
+import { getStudentModules, getStudentSessions, submitFeedback } from '../../lib/api';
 
-const modulesData = [
-  { 
-    id: 1, 
-    name: 'Web Development', 
-    code: 'WEB-301', 
-    teacher: 'Dr. Hassan Alaoui', 
-    sessions: 24, 
-    completed: 18,
-    myAttendance: 17,
-    avgScore: 7.8
-  },
-  { 
-    id: 2, 
-    name: 'Mobile Applications', 
-    code: 'MOB-303', 
-    teacher: 'Dr. Youssef Chakir', 
-    sessions: 20, 
-    completed: 14,
-    myAttendance: 13,
-    avgScore: 7.2
-  },
-  { 
-    id: 3, 
-    name: 'Database Systems', 
-    code: 'DB-302', 
-    teacher: 'Dr. Amina Benjelloun', 
-    sessions: 22, 
-    completed: 16,
-    myAttendance: 15,
-    avgScore: 8.5
-  },
-  { 
-    id: 4, 
-    name: 'Computer Networks', 
-    code: 'NET-304', 
-    teacher: 'Dr. Fatima Tazi', 
-    sessions: 20, 
-    completed: 14,
-    myAttendance: 13,
-    avgScore: 7.0
-  },
-  { 
-    id: 5, 
-    name: 'Algorithms', 
-    code: 'ALG-201', 
-    teacher: 'Dr. Karim El Idrissi', 
-    sessions: 26, 
-    completed: 20,
-    myAttendance: 19,
-    avgScore: 8.1
-  },
-];
+interface SessionItem {
+  id: number;
+  module_id: number;
+  title: string;
+  session_date: string;
+}
 
 export function MyModulesStudent() {
-  const [selectedModule, setSelectedModule] = useState<number | null>(null);
+  const { token } = useAuth();
+  const [selectedSession, setSelectedSession] = useState<number | null>(null);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [question, setQuestion] = useState('');
   const [understanding, setUnderstanding] = useState(5);
+  const [modules, setModules] = useState<any[]>([]);
+  const [sessions, setSessions] = useState<SessionItem[]>([]);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!token) return;
+    const load = async () => {
+      try {
+        const [modulesData, sessionsData] = await Promise.all([
+          getStudentModules(token),
+          getStudentSessions(token),
+        ]);
+        setModules(modulesData.modules || []);
+        setSessions(sessionsData.sessions || []);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load modules');
+      }
+    };
+    load();
+  }, [token]);
+
+  const sessionsByModule = useMemo(() => {
+    return sessions.reduce<Record<number, SessionItem[]>>((acc, session) => {
+      const moduleId = session.module_id;
+      if (!acc[moduleId]) acc[moduleId] = [];
+      acc[moduleId].push(session);
+      return acc;
+    }, {});
+  }, [sessions]);
+
+  const handleSubmitFeedback = async () => {
+    if (!token || !selectedSession) return;
+    try {
+      await submitFeedback(token, {
+        sessionId: selectedSession,
+        understandingScore: understanding,
+        question: question || null,
+      });
+      setShowFeedbackModal(false);
+      setQuestion('');
+      setUnderstanding(5);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to submit feedback');
+    }
+  };
 
   return (
     <div className="space-y-6">
-      {/* Modules Grid */}
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {modulesData.map((module) => (
+        {modules.map((module) => (
           <div key={module.id} className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
             <div className="flex items-start gap-3 mb-4">
               <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -79,48 +86,41 @@ export function MyModulesStudent() {
             <div className="space-y-3 mb-4">
               <div className="flex items-center gap-2 text-sm text-gray-600 pb-2 border-b border-gray-100">
                 <User className="w-4 h-4" />
-                <span>{module.teacher}</span>
+                <span>Assigned module</span>
               </div>
 
               <div className="py-2 border-b border-gray-100">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-600">Session Progress</span>
+                  <span className="text-sm text-gray-600">Sessions</span>
                   <span className="text-sm font-medium text-gray-900">
-                    {module.completed}/{module.sessions}
+                    {sessionsByModule[module.id]?.length ?? 0}
                   </span>
                 </div>
                 <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full"
-                    style={{ width: `${(module.completed / module.sessions) * 100}%` }}
+                    style={{ width: `${Math.min((sessionsByModule[module.id]?.length ?? 0) * 10, 100)}%` }}
                   ></div>
                 </div>
               </div>
 
               <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                <span className="text-sm text-gray-600">My Attendance</span>
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-gray-900">{module.myAttendance}/{module.completed}</span>
-                  <span className={`text-sm font-medium ${
-                    (module.myAttendance / module.completed) >= 0.85 ? 'text-green-600' : 'text-orange-600'
-                  }`}>
-                    ({Math.round((module.myAttendance / module.completed) * 100)}%)
-                  </span>
-                </div>
+                <span className="text-sm text-gray-600">Attendance</span>
+                <span className="font-semibold text-gray-900">-</span>
               </div>
 
               <div className="flex items-center justify-between py-2">
                 <span className="text-sm text-gray-600">Avg Understanding</span>
                 <div className="flex items-center gap-2">
                   <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                  <span className="font-semibold text-gray-900">{module.avgScore}/9</span>
+                  <span className="font-semibold text-gray-900">-</span>
                 </div>
               </div>
             </div>
 
             <button
               onClick={() => {
-                setSelectedModule(module.id);
+                setSelectedSession(sessionsByModule[module.id]?.[0]?.id ?? null);
                 setShowFeedbackModal(true);
               }}
               className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
@@ -131,17 +131,26 @@ export function MyModulesStudent() {
         ))}
       </div>
 
-      {/* Submit Feedback Modal */}
-      {showFeedbackModal && selectedModule && (
+      {showFeedbackModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl max-w-md w-full p-6">
             <h2 className="text-2xl font-semibold text-gray-900 mb-6">Session Feedback</h2>
-            
+
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Module: {modulesData.find(m => m.id === selectedModule)?.name}
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Select Session</label>
+                <select
+                  value={selectedSession ?? ''}
+                  onChange={(e) => setSelectedSession(Number(e.target.value))}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none"
+                >
+                  <option value="" disabled>Select session</option>
+                  {sessions.map((session) => (
+                    <option key={session.id} value={session.id}>
+                      {session.title} - {session.session_date}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
@@ -200,11 +209,7 @@ export function MyModulesStudent() {
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  setShowFeedbackModal(false);
-                  setQuestion('');
-                  setUnderstanding(5);
-                }}
+                onClick={handleSubmitFeedback}
                 className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
               >
                 Submit Feedback

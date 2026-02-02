@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { 
   LayoutDashboard, 
   BookOpen, 
@@ -14,12 +14,14 @@ import { MyModulesStudent } from './student/MyModulesStudent';
 import { ScanAttendance } from './student/ScanAttendance';
 import { ProjectSubmission } from './student/ProjectSubmission';
 import { StudentProfile } from './student/StudentProfile';
+import type { User as AppUser } from '../types';
 
 interface StudentDashboardProps {
   onLogout: () => void;
+  user: AppUser | null;
 }
 
-export function StudentDashboard({ onLogout }: StudentDashboardProps) {
+export function StudentDashboard({ onLogout, user }: StudentDashboardProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'modules' | 'attendance' | 'project' | 'profile'>('overview');
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
@@ -31,9 +33,18 @@ export function StudentDashboard({ onLogout }: StudentDashboardProps) {
     { id: 'profile', label: 'Profile', icon: User },
   ] as const;
 
+  const initials = useMemo(() => {
+    const name = user?.fullName || user?.email || 'Student';
+    return name
+      .split(' ')
+      .map((part) => part[0])
+      .slice(0, 2)
+      .join('')
+      .toUpperCase();
+  }, [user]);
+
   return (
     <div className="flex h-screen bg-gray-50">
-      {/* Sidebar */}
       <aside className={`${sidebarOpen ? 'w-64' : 'w-20'} bg-white border-r border-gray-200 transition-all duration-300 flex flex-col`}>
         <div className="h-16 border-b border-gray-200 flex items-center justify-between px-4">
           {sidebarOpen && <span className="font-semibold text-gray-900">Student Portal</span>}
@@ -76,22 +87,21 @@ export function StudentDashboard({ onLogout }: StudentDashboardProps) {
         </div>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 overflow-auto">
         <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-8">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
               {menuItems.find(item => item.id === activeTab)?.label}
             </h1>
-            <p className="text-sm text-gray-600">DUT Informatique</p>
+            <p className="text-sm text-gray-600">{user?.branchId ? `Branch ID: ${user.branchId}` : 'My Branch'}</p>
           </div>
           <div className="flex items-center gap-3">
             <div className="text-right">
-              <p className="font-medium text-gray-900">Ahmed Benali</p>
-              <p className="text-sm text-gray-600">ahmed.benali@student.dut.ma</p>
+              <p className="font-medium text-gray-900">{user?.fullName || 'Student User'}</p>
+              <p className="text-sm text-gray-600">{user?.email || ''}</p>
             </div>
             <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-medium">
-              AB
+              {initials}
             </div>
           </div>
         </header>

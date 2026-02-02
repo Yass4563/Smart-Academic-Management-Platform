@@ -1,11 +1,27 @@
+# Smart Academic Management Platform
 
-  # Smart Academic Management Platform
+This repo contains the frontend (Vite + React) and a full backend (Node + Express + MySQL).
 
-  This is a code bundle for Smart Academic Management Platform. The original project is available at https://www.figma.com/design/gZAq0WrGwaTjqf5dnNpN92/Smart-Academic-Management-Platform.
+## Frontend
 
-  ## Running the code
+1. Install dependencies:
 
-  Run `npm i` to install the dependencies.
+```bash
+npm i
+```
 
-  Run `npm run dev` to start the development server.
-  
+2. (Optional) Set API URL in a `.env` file:
+
+```bash
+VITE_API_URL=http://localhost:5000
+```
+
+3. Start the frontend:
+
+```bash
+npm run dev
+```
+
+## Backend
+
+See `backend/README.md` for full setup, schema seed, and API endpoints.

@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { QrCode, CheckCircle, XCircle, Calendar, Clock } from 'lucide-react';
+import { useAuth } from '../../lib/auth';
+import { scanAttendance } from '../../lib/api';
 
 const attendanceHistory = [
   { id: 1, module: 'Web Development', session: 5, date: '2025-12-28', time: '09:02', status: 'present' },
@@ -10,23 +12,34 @@ const attendanceHistory = [
 ];
 
 export function ScanAttendance() {
+  const { token } = useAuth();
   const [showScanner, setShowScanner] = useState(false);
   const [scanResult, setScanResult] = useState<'success' | 'error' | null>(null);
+  const [qrToken, setQrToken] = useState('');
+  const [error, setError] = useState('');
 
-  const handleScan = () => {
-    // Simulate scanning
-    setTimeout(() => {
+  const handleScan = async () => {
+    if (!token || !qrToken.trim()) {
+      setError('Enter a QR token to scan.');
+      return;
+    }
+    setError('');
+    try {
+      await scanAttendance(token, qrToken.trim());
       setScanResult('success');
       setTimeout(() => {
         setShowScanner(false);
         setScanResult(null);
-      }, 2000);
-    }, 1500);
+        setQrToken('');
+      }, 1500);
+    } catch (err) {
+      setScanResult('error');
+      setError(err instanceof Error ? err.message : 'Scan failed');
+    }
   };
 
   return (
     <div className="space-y-6">
-      {/* Scan QR Card */}
       <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl p-8 text-white shadow-lg">
         <div className="flex items-center justify-between">
           <div>
@@ -48,7 +61,6 @@ export function ScanAttendance() {
         </div>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
           <p className="text-sm text-gray-600 mb-1">Total Sessions</p>
@@ -70,7 +82,6 @@ export function ScanAttendance() {
         </div>
       </div>
 
-      {/* Attendance History */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
         <div className="p-6 border-b border-gray-200">
           <h3 className="font-semibold text-gray-900">Attendance History</h3>
@@ -112,30 +123,39 @@ export function ScanAttendance() {
         </div>
       </div>
 
-      {/* QR Scanner Modal */}
       {showScanner && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl max-w-md w-full p-6">
             {scanResult === null && (
               <>
                 <h2 className="text-2xl font-semibold text-gray-900 mb-6 text-center">Scan QR Code</h2>
-                
-                <div className="border-4 border-dashed border-gray-300 rounded-lg p-8 mb-6">
-                  <div className="w-full aspect-square bg-gray-100 rounded-lg flex items-center justify-center">
-                    <div className="text-center">
-                      <QrCode className="w-24 h-24 text-gray-400 mx-auto mb-3 animate-pulse" />
-                      <p className="text-gray-600">Point camera at QR code</p>
+
+                <div className="space-y-4">
+                  <input
+                    type="text"
+                    value={qrToken}
+                    onChange={(e) => setQrToken(e.target.value)}
+                    placeholder="Paste QR token"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none"
+                  />
+
+                  <div className="border-4 border-dashed border-gray-300 rounded-lg p-8">
+                    <div className="w-full aspect-square bg-gray-100 rounded-lg flex items-center justify-center">
+                      <div className="text-center">
+                        <QrCode className="w-24 h-24 text-gray-400 mx-auto mb-3 animate-pulse" />
+                        <p className="text-gray-600">Use a QR scanner on mobile to get the token</p>
+                      </div>
                     </div>
                   </div>
+
+                  {error && (
+                    <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+                      {error}
+                    </div>
+                  )}
                 </div>
 
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                  <p className="text-sm text-blue-800">
-                    Make sure the QR code is within the frame and well-lit
-                  </p>
-                </div>
-
-                <div className="flex gap-3">
+                <div className="flex gap-3 mt-6">
                   <button
                     onClick={() => setShowScanner(false)}
                     className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
@@ -146,7 +166,7 @@ export function ScanAttendance() {
                     onClick={handleScan}
                     className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
                   >
-                    Simulate Scan
+                    Submit Token
                   </button>
                 </div>
               </>
@@ -159,6 +179,16 @@ export function ScanAttendance() {
                 </div>
                 <h3 className="text-2xl font-bold text-gray-900 mb-2">Attendance Marked!</h3>
                 <p className="text-gray-600">Your attendance has been recorded successfully</p>
+              </div>
+            )}
+
+            {scanResult === 'error' && (
+              <div className="text-center py-8">
+                <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <XCircle className="w-12 h-12 text-red-600" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">Scan Failed</h3>
+                <p className="text-gray-600">{error || 'Try again'}</p>
               </div>
             )}
           </div>

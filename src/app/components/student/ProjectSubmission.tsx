@@ -1,18 +1,45 @@
 import { useState } from 'react';
 import { Upload, Github, FileText, Video, Users, Award, Calendar, CheckCircle } from 'lucide-react';
+import { useAuth } from '../../lib/auth';
+import { submitPfe } from '../../lib/api';
 
 export function ProjectSubmission() {
+  const { token } = useAuth();
   const [projectSubmitted, setProjectSubmitted] = useState(false);
   const [formData, setFormData] = useState({
-    name: 'E-Commerce Platform with AI',
-    members: 'Ahmed Benali, Fatima Zahra, Mohamed Alami',
-    supervisor: 'Dr. Hassan Alaoui',
-    github: 'https://github.com/team1/ecommerce',
+    name: '',
+    members: '',
+    supervisor: '',
+    github: '',
   });
+  const [reportFile, setReportFile] = useState<File | null>(null);
+  const [demoFile, setDemoFile] = useState<File | null>(null);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async () => {
+    if (!token) return;
+    if (!formData.name.trim()) {
+      setError('Project name is required.');
+      return;
+    }
+    setError('');
+    try {
+      await submitPfe(token, {
+        name: formData.name,
+        members: formData.members,
+        supervisor: formData.supervisor,
+        githubLink: formData.github,
+        report: reportFile,
+        demo: demoFile,
+      });
+      setProjectSubmitted(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Submission failed');
+    }
+  };
 
   return (
     <div className="space-y-6">
-      {/* Project Status Card */}
       {projectSubmitted ? (
         <div className="bg-green-50 border border-green-200 rounded-xl p-6">
           <div className="flex items-start gap-4">
@@ -25,7 +52,7 @@ export function ProjectSubmission() {
               <div className="flex items-center gap-4 text-sm text-green-700">
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4" />
-                  <span>Submitted: 2025-12-30</span>
+                  <span>Submitted: {new Date().toISOString().slice(0, 10)}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Award className="w-4 h-4" />
@@ -43,18 +70,22 @@ export function ProjectSubmission() {
             </div>
             <div>
               <h3 className="font-semibold text-orange-900 mb-1">Submission Deadline</h3>
-              <p className="text-orange-700">Your PFE project must be submitted by <strong>January 15, 2026</strong></p>
+              <p className="text-orange-700">Please submit your PFE project before the deadline.</p>
             </div>
           </div>
         </div>
       )}
 
-      {/* Project Submission Form */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <h2 className="text-2xl font-semibold text-gray-900 mb-6">PFE Project Submission</h2>
-        
+
+        {error && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 mb-4">
+            {error}
+          </div>
+        )}
+
         <div className="space-y-6">
-          {/* Project Name */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Project Name</label>
             <input
@@ -67,7 +98,6 @@ export function ProjectSubmission() {
             />
           </div>
 
-          {/* Team Members */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               <Users className="w-4 h-4 inline mr-1" />
@@ -83,24 +113,18 @@ export function ProjectSubmission() {
             />
           </div>
 
-          {/* Supervisor */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Project Supervisor</label>
-            <select
+            <input
+              type="text"
               value={formData.supervisor}
               onChange={(e) => setFormData({ ...formData, supervisor: e.target.value })}
+              placeholder="Supervisor name"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none"
               disabled={projectSubmitted}
-            >
-              <option>Dr. Hassan Alaoui</option>
-              <option>Dr. Amina Benjelloun</option>
-              <option>Dr. Karim El Idrissi</option>
-              <option>Dr. Fatima Tazi</option>
-              <option>Dr. Youssef Chakir</option>
-            </select>
+            />
           </div>
 
-          {/* GitHub Link */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               <Github className="w-4 h-4 inline mr-1" />
@@ -116,23 +140,21 @@ export function ProjectSubmission() {
             />
           </div>
 
-          {/* File Uploads */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Report Upload */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 <FileText className="w-4 h-4 inline mr-1" />
                 Project Report (PDF)
               </label>
-              <div className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-                projectSubmitted 
-                  ? 'border-green-300 bg-green-50' 
+              <label className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                projectSubmitted
+                  ? 'border-green-300 bg-green-50'
                   : 'border-gray-300 hover:border-indigo-400 cursor-pointer'
               }`}>
-                {projectSubmitted ? (
+                {reportFile ? (
                   <div className="text-green-700">
                     <CheckCircle className="w-8 h-8 mx-auto mb-2" />
-                    <p className="text-sm font-medium">report_final.pdf</p>
+                    <p className="text-sm font-medium">{reportFile.name}</p>
                   </div>
                 ) : (
                   <>
@@ -141,24 +163,30 @@ export function ProjectSubmission() {
                     <p className="text-xs text-gray-500 mt-1">Max size: 10MB</p>
                   </>
                 )}
-              </div>
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  className="hidden"
+                  onChange={(e) => setReportFile(e.target.files?.[0] ?? null)}
+                  disabled={projectSubmitted}
+                />
+              </label>
             </div>
 
-            {/* Video Upload */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 <Video className="w-4 h-4 inline mr-1" />
                 Demo Video (MP4)
               </label>
-              <div className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-                projectSubmitted 
-                  ? 'border-green-300 bg-green-50' 
+              <label className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                projectSubmitted
+                  ? 'border-green-300 bg-green-50'
                   : 'border-gray-300 hover:border-indigo-400 cursor-pointer'
               }`}>
-                {projectSubmitted ? (
+                {demoFile ? (
                   <div className="text-green-700">
                     <CheckCircle className="w-8 h-8 mx-auto mb-2" />
-                    <p className="text-sm font-medium">demo_video.mp4</p>
+                    <p className="text-sm font-medium">{demoFile.name}</p>
                   </div>
                 ) : (
                   <>
@@ -167,26 +195,20 @@ export function ProjectSubmission() {
                     <p className="text-xs text-gray-500 mt-1">Max size: 100MB</p>
                   </>
                 )}
-              </div>
+                <input
+                  type="file"
+                  accept="video/*"
+                  className="hidden"
+                  onChange={(e) => setDemoFile(e.target.files?.[0] ?? null)}
+                  disabled={projectSubmitted}
+                />
+              </label>
             </div>
           </div>
 
-          {/* Info Box */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h4 className="font-medium text-blue-900 mb-2">Submission Requirements:</h4>
-            <ul className="text-sm text-blue-800 space-y-1">
-              <li>• Project name and team member names</li>
-              <li>• Valid GitHub repository link with project source code</li>
-              <li>• Complete project report in PDF format</li>
-              <li>• Demo video showcasing your project (5-10 minutes)</li>
-              <li>• All files must be uploaded before the deadline</li>
-            </ul>
-          </div>
-
-          {/* Submit Button */}
           {!projectSubmitted && (
             <button
-              onClick={() => setProjectSubmitted(true)}
+              onClick={handleSubmit}
               className="w-full px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
             >
               Submit PFE Project
@@ -204,7 +226,6 @@ export function ProjectSubmission() {
         </div>
       </div>
 
-      {/* Grading Info (if graded) */}
       {projectSubmitted && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h3 className="font-semibold text-gray-900 mb-4">Evaluation Status</h3>

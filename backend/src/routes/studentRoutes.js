@@ -7,6 +7,8 @@ import {
   getProfile,
   getModules,
   getSessions,
+  getOverview,
+  getAttendanceHistory,
   scanAttendance,
   submitFeedback,
   submitProject,
@@ -19,6 +21,8 @@ router.use(requireAuth, requireRole("STUDENT"));
 router.get("/profile", getProfile);
 router.get("/modules", getModules);
 router.get("/sessions", getSessions);
+router.get("/overview", getOverview);
+router.get("/attendance/history", getAttendanceHistory);
 
 router.post(
   "/attendance/scan",

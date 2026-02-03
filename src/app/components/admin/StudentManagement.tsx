@@ -1,21 +1,26 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Upload, Download, Search } from 'lucide-react';
+import { Upload, Search } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
-import { getBranches, getStudents, importStudents } from '../../lib/api';
-import type { Branch, Student } from '../../types';
+import { enrollStudent, getBranches, getModules, getStudents, importStudents } from '../../lib/api';
+import type { Branch, Module, Student } from '../../types';
 
 export function StudentManagement() {
   const { token } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedBranch, setSelectedBranch] = useState('all');
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showEnrollModal, setShowEnrollModal] = useState(false);
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [modules, setModules] = useState<Module[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [importBranchId, setImportBranchId] = useState('');
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importResult, setImportResult] = useState<string | null>(null);
+  const [importDetails, setImportDetails] = useState<any[]>([]);
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [selectedModuleId, setSelectedModuleId] = useState('');
 
   useEffect(() => {
     if (!token) {
@@ -25,11 +30,21 @@ export function StudentManagement() {
       setLoading(true);
       setError('');
       try {
-        const [studentsData, branchesData] = await Promise.all([
+        const [studentsData, branchesData, modulesData] = await Promise.all([
           getStudents(token),
           getBranches(token),
+          getModules(token),
         ]);
         setBranches(branchesData.branches || []);
+        setModules(
+          (modulesData.modules || []).map((module: any) => ({
+            id: module.id,
+            name: module.name,
+            code: module.code,
+            branchId: module.branch_id ?? module.branchId,
+            branchName: module.branch_name ?? module.branchName ?? null,
+          }))
+        );
         setStudents(
           (studentsData.students || []).map((student: any) => ({
             studentId: student.student_id,
@@ -74,6 +89,7 @@ export function StudentManagement() {
         importBranchId ? Number(importBranchId) : null
       );
       setImportResult(`Imported ${result.count} rows.`);
+      setImportDetails(result.results || []);
       const studentsData = await getStudents(token);
       setStudents(
         (studentsData.students || []).map((student: any) => ({
@@ -86,8 +102,26 @@ export function StudentManagement() {
           studentNumber: student.student_number,
         }))
       );
+      window.dispatchEvent(new CustomEvent('admin-data-updated'));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to import students');
+    }
+  };
+
+  const handleEnroll = async () => {
+    if (!token || !selectedStudent || !selectedModuleId) {
+      setError('Select a student and module.');
+      return;
+    }
+    setError('');
+    try {
+      await enrollStudent(token, { studentId: selectedStudent.studentId, moduleId: Number(selectedModuleId) });
+      setShowEnrollModal(false);
+      setSelectedStudent(null);
+      setSelectedModuleId('');
+      window.dispatchEvent(new CustomEvent('admin-data-updated'));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to enroll student');
     }
   };
 
@@ -128,10 +162,6 @@ export function StudentManagement() {
             Import Excel
           </button>
 
-          <button className="flex items-center gap-2 border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors">
-            <Download className="w-5 h-5" />
-            Export
-          </button>
         </div>
       </div>
 
@@ -173,6 +203,7 @@ export function StudentManagement() {
                   <th className="text-left px-6 py-4 text-sm font-semibold text-gray-900">Branch</th>
                   <th className="text-left px-6 py-4 text-sm font-semibold text-gray-900">Status</th>
                   <th className="text-left px-6 py-4 text-sm font-semibold text-gray-900">Student #</th>
+                  <th className="text-left px-6 py-4 text-sm font-semibold text-gray-900">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -204,6 +235,17 @@ export function StudentManagement() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-gray-600">{student.studentNumber || '-'}</td>
+                    <td className="px-6 py-4">
+                      <button
+                        onClick={() => {
+                          setSelectedStudent(student);
+                          setShowEnrollModal(true);
+                        }}
+                        className="text-indigo-600 hover:text-indigo-700 font-medium"
+                      >
+                        Enroll Module
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -235,7 +277,7 @@ export function StudentManagement() {
               <label className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-indigo-400 transition-colors cursor-pointer">
                 <Upload className="w-12 h-12 text-gray-400 mx-auto mb-3" />
                 <p className="text-gray-600 mb-1">Click to upload or drag and drop</p>
-                <p className="text-sm text-gray-500">Excel file (.xlsx, .xls) with columns: Full Name, Email</p>
+                <p className="text-sm text-gray-500">Excel file (.xlsx, .xls) with columns: Full Name, Email, Branch (code or name)</p>
                 <input
                   type="file"
                   accept=".xlsx,.xls"
@@ -253,6 +295,16 @@ export function StudentManagement() {
                   {importResult}
                 </div>
               )}
+              {importDetails.length > 0 && (
+                <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3 text-sm text-gray-700 space-y-2">
+                  {importDetails.map((row: any, idx: number) => (
+                    <div key={idx} className="flex items-center justify-between">
+                      <span>{row.email}</span>
+                      <span className="font-mono">{row.password || row.status}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="flex gap-3 mt-6">
@@ -267,6 +319,42 @@ export function StudentManagement() {
                 className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
               >
                 Import Students
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showEnrollModal && selectedStudent && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl max-w-md w-full p-6">
+            <h2 className="text-2xl font-semibold text-gray-900 mb-6">Enroll Student</h2>
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600">Student: {selectedStudent.fullName}</p>
+              <select
+                value={selectedModuleId}
+                onChange={(e) => setSelectedModuleId(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none"
+              >
+                <option value="">Select module</option>
+                {modules.map((module) => (
+                  <option key={module.id} value={module.id}>{module.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowEnrollModal(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleEnroll}
+                className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+              >
+                Enroll
               </button>
             </div>
           </div>

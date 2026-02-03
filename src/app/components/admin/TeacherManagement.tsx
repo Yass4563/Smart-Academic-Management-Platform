@@ -53,6 +53,9 @@ export function TeacherManagement() {
             branchId: teacher.branch_id,
             isActive: teacher.is_active,
             title: teacher.title,
+            modules: teacher.module_names
+              ? String(teacher.module_names).split(",").map((m: string) => m.trim())
+              : [],
           }))
         );
         setBranches(branchesData.branches || []);
@@ -108,6 +111,9 @@ export function TeacherManagement() {
           branchId: teacher.branch_id,
           isActive: teacher.is_active,
           title: teacher.title,
+          modules: teacher.module_names
+            ? String(teacher.module_names).split(",").map((m: string) => m.trim())
+            : [],
         }))
       );
     } catch (err) {
@@ -119,14 +125,34 @@ export function TeacherManagement() {
     if (!token || !selectedTeacher) {
       return;
     }
+    if (selectedModules.length === 0) {
+      setError('Select at least one module to assign.');
+      return;
+    }
     setError('');
     try {
       for (const moduleId of selectedModules) {
-        await assignTeacher(token, { teacherId: selectedTeacher.teacherId, moduleId });
+        await assignTeacher(token, { teacherId: selectedTeacher.teacherId, moduleId: Number(moduleId) });
       }
+      const refreshed = await getTeachers(token);
+      setTeachers(
+        (refreshed.teachers || []).map((teacher: any) => ({
+          teacherId: teacher.teacher_id,
+          userId: teacher.user_id,
+          fullName: teacher.full_name,
+          email: teacher.email,
+          branchId: teacher.branch_id,
+          isActive: teacher.is_active,
+          title: teacher.title,
+          modules: teacher.module_names
+            ? String(teacher.module_names).split(",").map((m: string) => m.trim())
+            : [],
+        }))
+      );
       setShowAssignModal(false);
       setSelectedModules([]);
       setSelectedTeacher(null);
+      window.dispatchEvent(new CustomEvent('admin-data-updated'));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to assign modules');
     }
@@ -192,13 +218,26 @@ export function TeacherManagement() {
                 </span>
               </div>
 
-              <div className="border-t border-gray-200 pt-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <BookOpen className="w-4 h-4 text-gray-600" />
-                  <span className="text-sm font-medium text-gray-700">Assigned Modules</span>
-                </div>
-                <div className="text-sm text-gray-500">Use "Assign Modules" to add courses.</div>
+            <div className="border-t border-gray-200 pt-4">
+              <div className="flex items-center gap-2 mb-3">
+                <BookOpen className="w-4 h-4 text-gray-600" />
+                <span className="text-sm font-medium text-gray-700">Assigned Modules</span>
               </div>
+              {teacher.modules?.length ? (
+                <div className="flex flex-wrap gap-2">
+                  {teacher.modules.map((module: string, idx: number) => (
+                    <span
+                      key={idx}
+                      className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm"
+                    >
+                      {module}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-sm text-gray-500">No modules assigned yet.</div>
+              )}
+            </div>
 
               <div className="flex gap-3 mt-4 pt-4 border-t border-gray-200">
                 <button
@@ -210,9 +249,6 @@ export function TeacherManagement() {
                   className="flex-1 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors font-medium"
                 >
                   Assign Modules
-                </button>
-                <button className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium">
-                  View Profile
                 </button>
               </div>
             </div>

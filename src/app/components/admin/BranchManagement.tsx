@@ -21,23 +21,30 @@ export function BranchManagement() {
     );
   }, [branches, searchTerm]);
 
-  useEffect(() => {
+  const load = async () => {
     if (!token) {
       return;
     }
-    const load = async () => {
-      setLoading(true);
-      setError('');
-      try {
-        const data = await getBranches(token);
-        setBranches(data.branches || []);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load branches');
-      } finally {
-        setLoading(false);
-      }
-    };
+    setLoading(true);
+    setError('');
+    try {
+      const data = await getBranches(token);
+      setBranches(data.branches || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load branches');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     load();
+  }, [token]);
+
+  useEffect(() => {
+    const refresh = () => load();
+    window.addEventListener('admin-data-updated', refresh as EventListener);
+    return () => window.removeEventListener('admin-data-updated', refresh as EventListener);
   }, [token]);
 
   const openCreate = () => {
@@ -156,14 +163,14 @@ export function BranchManagement() {
                     <Users className="w-4 h-4" />
                     <span className="text-sm">Students</span>
                   </div>
-                  <span className="font-semibold text-gray-900">0</span>
+                  <span className="font-semibold text-gray-900">{branch.student_count ?? 0}</span>
                 </div>
                 <div className="flex items-center justify-between py-2 border-t border-gray-100">
                   <div className="flex items-center gap-2 text-gray-600">
                     <BookOpen className="w-4 h-4" />
                     <span className="text-sm">Modules</span>
                   </div>
-                  <span className="font-semibold text-gray-900">0</span>
+                  <span className="font-semibold text-gray-900">{branch.module_count ?? 0}</span>
                 </div>
               </div>
 

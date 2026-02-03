@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { QrCode, Download, Calendar, Users, Search, CheckCircle, XCircle } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
-import { exportAttendance, generateQr, getAttendance, getModuleSessions, getTeacherModules } from '../../lib/api';
+import { createSession, exportAttendance, generateQr, getAttendance, getModuleSessions, getTeacherModules } from '../../lib/api';
 
 export function AttendanceManagement() {
   const { token } = useAuth();
   const [showQRModal, setShowQRModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedSession, setSelectedSession] = useState<any | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -17,29 +18,37 @@ export function AttendanceManagement() {
   const [qrSessionId, setQrSessionId] = useState<string>('');
   const [expiresIn, setExpiresIn] = useState('10');
   const [error, setError] = useState('');
+  const [sessionForm, setSessionForm] = useState({
+    moduleId: '',
+    title: '',
+    sessionDate: '',
+    startTime: '',
+    endTime: '',
+  });
+
+  const loadData = async () => {
+    if (!token) return;
+    try {
+      const data = await getTeacherModules(token);
+      setModules(data.modules || []);
+      const sessionLists = await Promise.all(
+        (data.modules || []).map((module: any) => getModuleSessions(token, module.id))
+      );
+      const flattened = sessionLists.flatMap((list: any, idx: number) =>
+        (list.sessions || []).map((session: any) => ({
+          ...session,
+          moduleName: data.modules[idx].name,
+          moduleId: data.modules[idx].id,
+        }))
+      );
+      setSessions(flattened);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load sessions');
+    }
+  };
 
   useEffect(() => {
-    if (!token) return;
-    const load = async () => {
-      try {
-        const data = await getTeacherModules(token);
-        setModules(data.modules || []);
-        const sessionLists = await Promise.all(
-          (data.modules || []).map((module: any) => getModuleSessions(token, module.id))
-        );
-        const flattened = sessionLists.flatMap((list: any, idx: number) =>
-          (list.sessions || []).map((session: any) => ({
-            ...session,
-            moduleName: data.modules[idx].name,
-            moduleId: data.modules[idx].id,
-          }))
-        );
-        setSessions(flattened);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load sessions');
-      }
-    };
-    load();
+    loadData();
   }, [token]);
 
   const filteredSessions = useMemo(() => {
@@ -96,6 +105,29 @@ export function AttendanceManagement() {
     }
   };
 
+  const handleCreateSession = async () => {
+    if (!token) return;
+    if (!sessionForm.moduleId || !sessionForm.title || !sessionForm.sessionDate || !sessionForm.startTime || !sessionForm.endTime) {
+      setError('Please fill all session fields.');
+      return;
+    }
+    setError('');
+    try {
+      await createSession(token, {
+        moduleId: Number(sessionForm.moduleId),
+        title: sessionForm.title,
+        sessionDate: sessionForm.sessionDate,
+        startTime: sessionForm.startTime,
+        endTime: sessionForm.endTime,
+      });
+      setShowCreateModal(false);
+      setSessionForm({ moduleId: '', title: '', sessionDate: '', startTime: '', endTime: '' });
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create session');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -109,16 +141,24 @@ export function AttendanceManagement() {
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none"
           />
         </div>
-        <button
-          onClick={() => {
-            setShowQRModal(true);
-            setQrData(null);
-          }}
-          className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
-        >
-          <QrCode className="w-5 h-5" />
-          Generate QR Code
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-2 border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Create Session
+          </button>
+          <button
+            onClick={() => {
+              setShowQRModal(true);
+              setQrData(null);
+            }}
+            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
+          >
+            <QrCode className="w-5 h-5" />
+            Generate QR Code
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -147,18 +187,18 @@ export function AttendanceManagement() {
                       <Calendar className="w-4 h-4" />
                       <span>{session.session_date} at {session.start_time}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Users className="w-4 h-4" />
-                      <span>- students</span>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4" />
+                    <span>{session.total_students ?? 0} students</span>
                   </div>
                 </div>
+              </div>
 
                 <div className="flex items-center gap-6">
                   <div className="text-center">
                     <div className="flex items-center gap-2 mb-1">
                       <CheckCircle className="w-5 h-5 text-green-600" />
-                      <span className="text-2xl font-bold text-green-600">-</span>
+                      <span className="text-2xl font-bold text-green-600">{session.present_count ?? 0}</span>
                     </div>
                     <span className="text-sm text-gray-600">Present</span>
                   </div>
@@ -166,7 +206,9 @@ export function AttendanceManagement() {
                   <div className="text-center">
                     <div className="flex items-center gap-2 mb-1">
                       <XCircle className="w-5 h-5 text-red-600" />
-                      <span className="text-2xl font-bold text-red-600">-</span>
+                      <span className="text-2xl font-bold text-red-600">
+                        {Math.max((session.total_students ?? 0) - (session.present_count ?? 0), 0)}
+                      </span>
                     </div>
                     <span className="text-sm text-gray-600">Absent</span>
                   </div>
@@ -263,6 +305,87 @@ export function AttendanceManagement() {
                 className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
               >
                 Generate & Display
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl max-w-md w-full p-6">
+            <h2 className="text-2xl font-semibold text-gray-900 mb-6">Create Session</h2>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Module</label>
+                <select
+                  value={sessionForm.moduleId}
+                  onChange={(e) => setSessionForm({ ...sessionForm, moduleId: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none"
+                >
+                  <option value="">Select module</option>
+                  {modules.map((module) => (
+                    <option key={module.id} value={module.id}>{module.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
+                <input
+                  type="text"
+                  value={sessionForm.title}
+                  onChange={(e) => setSessionForm({ ...sessionForm, title: e.target.value })}
+                  placeholder="Session title"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
+                  <input
+                    type="date"
+                    value={sessionForm.sessionDate}
+                    onChange={(e) => setSessionForm({ ...sessionForm, sessionDate: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Start Time</label>
+                  <input
+                    type="time"
+                    value={sessionForm.startTime}
+                    onChange={(e) => setSessionForm({ ...sessionForm, startTime: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">End Time</label>
+                <input
+                  type="time"
+                  value={sessionForm.endTime}
+                  onChange={(e) => setSessionForm({ ...sessionForm, endTime: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateSession}
+                className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+              >
+                Create Session
               </button>
             </div>
           </div>

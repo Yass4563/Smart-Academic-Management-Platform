@@ -10,6 +10,8 @@ export interface Branch {
   id: number;
   name: string;
   code: string;
+  student_count?: number;
+  module_count?: number;
 }
 
 export interface Module {
@@ -18,6 +20,8 @@ export interface Module {
   code: string;
   branchId: number;
   branchName?: string | null;
+  studentCount?: number | null;
+  teacherName?: string | null;
 }
 
 export interface Teacher {
@@ -28,6 +32,7 @@ export interface Teacher {
   branchId: number | null;
   isActive: number;
   title?: string | null;
+  modules?: string[];
 }
 
 export interface Student {

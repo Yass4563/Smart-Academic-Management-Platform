@@ -1,8 +1,8 @@
 import { findUserById } from "../services/users.js";
 import { listStudentModules, getStudentIdByUser } from "../services/students.js";
-import { listSessionsForStudent, findSessionByQrToken } from "../services/sessions.js";
-import { markAttendance } from "../services/attendance.js";
-import { upsertFeedback } from "../services/feedback.js";
+import { listSessionsForStudent, findSessionByQrToken, listUpcomingSessionsForStudent } from "../services/sessions.js";
+import { markAttendance, listAttendanceForStudent, attendanceRateByModule } from "../services/attendance.js";
+import { upsertFeedback, countFeedbackByStudent, listRecentFeedbackByStudent } from "../services/feedback.js";
 import { upsertProject } from "../services/pfe.js";
 
 export async function getProfile(req, res, next) {
@@ -93,6 +93,44 @@ export async function submitProject(req, res, next) {
     });
 
     return res.status(201).json({ projectId: id });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function getOverview(req, res, next) {
+  try {
+    const modules = await listStudentModules(req.user.id);
+    const sessions = await listSessionsForStudent(req.user.id);
+    const attendanceRates = await attendanceRateByModule(req.user.id);
+    const feedbackCount = await countFeedbackByStudent(req.user.id);
+    const recentFeedback = await listRecentFeedbackByStudent(req.user.id, 5);
+    const upcoming = await listUpcomingSessionsForStudent(req.user.id, 5);
+
+    const totalSessions = sessions.length;
+    const totalPresent = attendanceRates.reduce((sum, row) => sum + Number(row.present_count || 0), 0);
+    const attendanceRate = totalSessions > 0 ? Math.round((totalPresent / totalSessions) * 100) : 0;
+
+    return res.json({
+      stats: {
+        modules: modules.length,
+        sessions: totalSessions,
+        attendanceRate,
+        feedbackCount,
+      },
+      attendanceByModule: attendanceRates,
+      upcomingSessions: upcoming,
+      recentFeedback,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function getAttendanceHistory(req, res, next) {
+  try {
+    const history = await listAttendanceForStudent(req.user.id);
+    return res.json({ history });
   } catch (error) {
     return next(error);
   }

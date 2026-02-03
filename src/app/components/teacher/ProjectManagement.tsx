@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FolderOpen, Users, Calendar, Github, FileText, Video, Award, Search } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
-import { getProjects, gradeProject } from '../../lib/api';
+import { addProjectJury, getProjects, gradeProject, setProjectDeadline } from '../../lib/api';
 
 export function ProjectManagement() {
   const { token } = useAuth();
+  const apiBaseUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:5000';
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showGradeModal, setShowGradeModal] = useState(false);
   const [selectedProject, setSelectedProject] = useState<number | null>(null);
   const [grade, setGrade] = useState('');
+  const [deadline, setDeadline] = useState('');
   const [projects, setProjects] = useState<any[]>([]);
   const [error, setError] = useState('');
 
@@ -38,6 +40,8 @@ export function ProjectManagement() {
   }, [projects, searchTerm, statusFilter]);
 
   const currentProject = selectedProject ? projects.find(p => p.id === selectedProject) : null;
+  const reportUrl = currentProject?.report_path ? `${apiBaseUrl}${currentProject.report_path}` : null;
+  const demoUrl = currentProject?.demo_video_path ? `${apiBaseUrl}${currentProject.demo_video_path}` : null;
 
   const handleGrade = async () => {
     if (!token || !selectedProject) return;
@@ -48,6 +52,26 @@ export function ProjectManagement() {
       setGrade('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to grade project');
+    }
+  };
+
+  const handleDeadline = async () => {
+    if (!token || !currentProject || !deadline) return;
+    try {
+      await setProjectDeadline(token, { projectId: currentProject.id, deadlineAt: deadline });
+      setProjects((prev) => prev.map((p) => (p.id === currentProject.id ? { ...p, deadline_at: deadline } : p)));
+      setDeadline('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to set deadline');
+    }
+  };
+
+  const handleAddJury = async () => {
+    if (!token || !currentProject) return;
+    try {
+      await addProjectJury(token, { projectId: currentProject.id });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add jury member');
     }
   };
 
@@ -160,6 +184,7 @@ export function ProjectManagement() {
                   onClick={() => {
                     setSelectedProject(project.id);
                     setShowDetailsModal(true);
+                    setDeadline(project.deadline_at ? String(project.deadline_at).slice(0, 16) : '');
                   }}
                   className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
                 >
@@ -214,20 +239,69 @@ export function ProjectManagement() {
               )}
 
               <div className="grid grid-cols-2 gap-4">
-                <div className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors">
+                <div className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
                   <div className="flex items-center gap-2 mb-2">
                     <FileText className="w-5 h-5 text-red-600" />
                     <span className="font-medium text-gray-900">Project Report</span>
                   </div>
-                  <p className="text-sm text-gray-600">{currentProject.report_path || 'Not uploaded'}</p>
+                  {reportUrl ? (
+                    <a
+                      href={reportUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sm text-indigo-600 hover:underline break-all"
+                    >
+                      Open report
+                    </a>
+                  ) : (
+                    <p className="text-sm text-gray-600">Not uploaded</p>
+                  )}
                 </div>
 
-                <div className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors">
+                <div className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
                   <div className="flex items-center gap-2 mb-2">
                     <Video className="w-5 h-5 text-blue-600" />
                     <span className="font-medium text-gray-900">Demo Video</span>
                   </div>
-                  <p className="text-sm text-gray-600">{currentProject.demo_video_path || 'Not uploaded'}</p>
+                  {demoUrl ? (
+                    <a
+                      href={demoUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sm text-indigo-600 hover:underline break-all"
+                    >
+                      Open demo
+                    </a>
+                  ) : (
+                    <p className="text-sm text-gray-600">Not uploaded</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Set Deadline</label>
+                  <input
+                    type="datetime-local"
+                    value={deadline}
+                    onChange={(e) => setDeadline(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none"
+                  />
+                  <button
+                    onClick={handleDeadline}
+                    className="mt-2 w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                  >
+                    Save Deadline
+                  </button>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Jury</label>
+                  <button
+                    onClick={handleAddJury}
+                    className="w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Add Me as Jury
+                  </button>
                 </div>
               </div>
             </div>

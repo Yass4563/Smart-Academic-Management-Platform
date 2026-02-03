@@ -1,41 +1,76 @@
-import { Users, BookOpen, Building2, GraduationCap, TrendingUp, Calendar } from 'lucide-react';
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-
-const statsData = [
-  { label: 'Total Students', value: '1,248', change: '+12%', icon: Users, color: 'bg-blue-500' },
-  { label: 'Active Teachers', value: '87', change: '+5%', icon: GraduationCap, color: 'bg-green-500' },
-  { label: 'Modules', value: '124', change: '+8%', icon: BookOpen, color: 'bg-purple-500' },
-  { label: 'Branches', value: '6', change: '0%', icon: Building2, color: 'bg-orange-500' },
-];
-
-const attendanceData = [
-  { month: 'Jan', attendance: 85 },
-  { month: 'Feb', attendance: 88 },
-  { month: 'Mar', attendance: 82 },
-  { month: 'Apr', attendance: 90 },
-  { month: 'May', attendance: 87 },
-  { month: 'Jun', attendance: 92 },
-];
-
-const moduleEnrollmentData = [
-  { name: 'Web Development', students: 245 },
-  { name: 'Data Science', students: 198 },
-  { name: 'Mobile Apps', students: 176 },
-  { name: 'Cloud Computing', students: 154 },
-  { name: 'AI & ML', students: 203 },
-];
-
-const recentActivities = [
-  { id: 1, action: 'New student batch imported', branch: 'DUT Info', time: '2 hours ago' },
-  { id: 2, action: 'Module "Advanced React" created', teacher: 'Dr. Smith', time: '5 hours ago' },
-  { id: 3, action: 'Teacher assigned to module', module: 'Database Systems', time: '1 day ago' },
-  { id: 4, action: 'Branch "DUT Telecom" updated', admin: 'Admin', time: '2 days ago' },
-];
+import { useEffect, useMemo, useState } from 'react';
+import { Users, BookOpen, Building2, GraduationCap, TrendingUp, Megaphone } from 'lucide-react';
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useAuth } from '../../lib/auth';
+import { createAnnouncement, getAdminOverview, getAnnouncements } from '../../lib/api';
 
 export function Overview() {
+  const { token } = useAuth();
+  const [overview, setOverview] = useState<any>(null);
+  const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [announcementForm, setAnnouncementForm] = useState({ title: '', message: '' });
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!token) return;
+    const load = async () => {
+      try {
+        const [data, announcementData] = await Promise.all([
+          getAdminOverview(token),
+          getAnnouncements(token),
+        ]);
+        setOverview(data);
+        setAnnouncements(announcementData.announcements || []);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load overview');
+      }
+    };
+    load();
+  }, [token]);
+
+  const statsData = [
+    { label: 'Total Students', value: overview?.stats?.totalStudents ?? 0, icon: Users, color: 'bg-blue-500' },
+    { label: 'Active Teachers', value: overview?.stats?.activeTeachers ?? 0, icon: GraduationCap, color: 'bg-green-500' },
+    { label: 'Modules', value: overview?.stats?.modules ?? 0, icon: BookOpen, color: 'bg-purple-500' },
+    { label: 'Branches', value: overview?.stats?.branches ?? 0, icon: Building2, color: 'bg-orange-500' },
+  ];
+
+  const attendanceData = useMemo(() => {
+    const list = overview?.attendanceTrends || [];
+    return [...list].reverse().map((item: any) => ({
+      month: item.month,
+      attendance: item.total,
+    }));
+  }, [overview]);
+
+  const moduleEnrollmentData = overview?.moduleEnrollment || [];
+  const recentActivities = overview?.recentActivity || [];
+
+  const handleAnnouncement = async () => {
+    if (!token) return;
+    if (!announcementForm.title.trim() || !announcementForm.message.trim()) {
+      setError('Announcement title and message are required.');
+      return;
+    }
+    setError('');
+    try {
+      await createAnnouncement(token, announcementForm);
+      const refreshed = await getAnnouncements(token);
+      setAnnouncements(refreshed.announcements || []);
+      setAnnouncementForm({ title: '', message: '' });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create announcement');
+    }
+  };
+
   return (
     <div className="space-y-6">
-      {/* Stats Grid */}
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {statsData.map((stat) => {
           const Icon = stat.icon;
@@ -47,8 +82,7 @@ export function Overview() {
                   <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
                   <div className="flex items-center gap-1 mt-2">
                     <TrendingUp className="w-4 h-4 text-green-600" />
-                    <span className="text-sm text-green-600 font-medium">{stat.change}</span>
-                    <span className="text-sm text-gray-500">vs last month</span>
+                    <span className="text-sm text-gray-500">Updated live</span>
                   </div>
                 </div>
                 <div className={`${stat.color} p-3 rounded-lg`}>
@@ -60,9 +94,7 @@ export function Overview() {
         })}
       </div>
 
-      {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Attendance Trends */}
         <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
           <h3 className="font-semibold text-gray-900 mb-4">Attendance Trends</h3>
           <ResponsiveContainer width="100%" height={250}>
@@ -76,7 +108,6 @@ export function Overview() {
           </ResponsiveContainer>
         </div>
 
-        {/* Module Enrollment */}
         <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
           <h3 className="font-semibold text-gray-900 mb-4">Top Modules by Enrollment</h3>
           <ResponsiveContainer width="100%" height={250}>
@@ -91,29 +122,74 @@ export function Overview() {
         </div>
       </div>
 
-      {/* Recent Activity */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <div className="p-6 border-b border-gray-200">
-          <h3 className="font-semibold text-gray-900">Recent Activity</h3>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+          <div className="p-6 border-b border-gray-200">
+            <h3 className="font-semibold text-gray-900">Recent Activity</h3>
+          </div>
+          <div className="divide-y divide-gray-200">
+            {recentActivities.map((activity: any, idx: number) => (
+              <div key={idx} className="p-6 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                <div className="flex items-center gap-4">
+                  <div className="w-2 h-2 bg-indigo-600 rounded-full"></div>
+                  <div>
+                    <p className="font-medium text-gray-900">New {activity.role.toLowerCase()} created</p>
+                    <p className="text-sm text-gray-600">{activity.label}</p>
+                  </div>
+                </div>
+                <span className="text-sm text-gray-500">{new Date(activity.created_at).toLocaleString()}</span>
+              </div>
+            ))}
+            {recentActivities.length === 0 && (
+              <div className="p-6 text-sm text-gray-500">No recent activity.</div>
+            )}
+          </div>
         </div>
-        <div className="divide-y divide-gray-200">
-          {recentActivities.map((activity) => (
-            <div key={activity.id} className="p-6 flex items-center justify-between hover:bg-gray-50 transition-colors">
-              <div className="flex items-center gap-4">
-                <div className="w-2 h-2 bg-indigo-600 rounded-full"></div>
-                <div>
-                  <p className="font-medium text-gray-900">{activity.action}</p>
-                  <p className="text-sm text-gray-600">
-                    {'branch' in activity && activity.branch}
-                    {'teacher' in activity && activity.teacher}
-                    {'module' in activity && activity.module}
-                    {'admin' in activity && activity.admin}
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+          <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+            <h3 className="font-semibold text-gray-900">Announcements</h3>
+            <Megaphone className="w-5 h-5 text-indigo-600" />
+          </div>
+          <div className="p-6 space-y-4">
+            <div className="space-y-3">
+              <input
+                type="text"
+                value={announcementForm.title}
+                onChange={(e) => setAnnouncementForm({ ...announcementForm, title: e.target.value })}
+                placeholder="Announcement title"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none"
+              />
+              <textarea
+                value={announcementForm.message}
+                onChange={(e) => setAnnouncementForm({ ...announcementForm, message: e.target.value })}
+                placeholder="Announcement message"
+                rows={3}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none"
+              />
+              <button
+                onClick={handleAnnouncement}
+                className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+              >
+                Publish Announcement
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {announcements.map((announcement) => (
+                <div key={announcement.id} className="border border-gray-200 rounded-lg p-4">
+                  <p className="font-semibold text-gray-900">{announcement.title}</p>
+                  <p className="text-sm text-gray-600 mt-1">{announcement.message}</p>
+                  <p className="text-xs text-gray-500 mt-2">
+                    {new Date(announcement.created_at).toLocaleString()}
                   </p>
                 </div>
-              </div>
-              <span className="text-sm text-gray-500">{activity.time}</span>
+              ))}
+              {announcements.length === 0 && (
+                <div className="text-sm text-gray-500">No announcements yet.</div>
+              )}
             </div>
-          ))}
+          </div>
         </div>
       </div>
     </div>

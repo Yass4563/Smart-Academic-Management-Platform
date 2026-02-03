@@ -1,7 +1,15 @@
 import { pool } from "../config/db.js";
 
 export async function listBranches() {
-  const [rows] = await pool.query("SELECT id, name, code FROM branches ORDER BY name");
+  const [rows] = await pool.query(
+    `SELECT branches.id,
+            branches.name,
+            branches.code,
+            (SELECT COUNT(*) FROM users WHERE users.branch_id = branches.id AND users.role = 'STUDENT') AS student_count,
+            (SELECT COUNT(*) FROM modules WHERE modules.branch_id = branches.id) AS module_count
+     FROM branches
+     ORDER BY branches.name`
+  );
   return rows;
 }
 

@@ -8,6 +8,8 @@ import {
   createBranchHandler,
   createModuleHandler,
   createTeacher,
+  getAdminOverview,
+  enrollStudent,
   getStudents,
   getTeachers,
   deleteBranchHandler,
@@ -25,6 +27,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 router.use(requireAuth, requireRole("ADMIN"));
 
 router.get("/branches", getBranches);
+router.get("/overview", getAdminOverview);
 router.post(
   "/branches",
   body("name").isString().notEmpty(),
@@ -86,5 +89,12 @@ router.post(
   importStudents
 );
 router.get("/students", getStudents);
+router.post(
+  "/students/enroll",
+  body("studentId").isInt({ min: 1 }),
+  body("moduleId").isInt({ min: 1 }),
+  validate,
+  enrollStudent
+);
 
 export default router;

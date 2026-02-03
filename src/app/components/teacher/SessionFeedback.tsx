@@ -12,6 +12,11 @@ export function SessionFeedback() {
   const [modules, setModules] = useState<any[]>([]);
   const [summary, setSummary] = useState<any[]>([]);
   const [questions, setQuestions] = useState<any[]>([]);
+  const [scoreDistribution, setScoreDistribution] = useState([
+    { range: '1-3', count: 0 },
+    { range: '4-6', count: 0 },
+    { range: '7-9', count: 0 },
+  ]);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -36,6 +41,23 @@ export function SessionFeedback() {
       try {
         const data = await getFeedbackSummary(token, Number(selectedModule));
         setSummary(data.summary || []);
+        const latestSession = (data.summary || [])[0];
+        if (latestSession?.session_id) {
+          const detail = await getSessionFeedback(token, latestSession.session_id);
+          const scores = (detail.feedback || []).map((item: any) => Number(item.understanding_score || 0));
+          const dist = [
+            { range: '1-3', count: scores.filter((s: number) => s >= 1 && s <= 3).length },
+            { range: '4-6', count: scores.filter((s: number) => s >= 4 && s <= 6).length },
+            { range: '7-9', count: scores.filter((s: number) => s >= 7 && s <= 9).length },
+          ];
+          setScoreDistribution(dist);
+        } else {
+          setScoreDistribution([
+            { range: '1-3', count: 0 },
+            { range: '4-6', count: 0 },
+            { range: '7-9', count: 0 },
+          ]);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load feedback');
       }
@@ -53,12 +75,6 @@ export function SessionFeedback() {
     session: `S${idx + 1}`,
     score: Number(s.avg_score ?? 0),
   }));
-
-  const scoreDistribution = [
-    { range: '1-3', count: 0 },
-    { range: '4-6', count: 0 },
-    { range: '7-9', count: 0 },
-  ];
 
   const openQuestions = async (sessionId: number) => {
     if (!token) return;

@@ -37,3 +37,30 @@ export async function feedbackSummaryByModule(moduleId) {
   );
   return rows;
 }
+
+export async function listRecentFeedbackByStudent(userId, limit = 5) {
+  const [rows] = await pool.query(
+    `SELECT session_feedback.id, session_feedback.understanding_score, session_feedback.question,
+            sessions.title, sessions.session_date, modules.name AS module_name
+     FROM students
+     JOIN session_feedback ON session_feedback.student_id = students.id
+     JOIN sessions ON sessions.id = session_feedback.session_id
+     JOIN modules ON modules.id = sessions.module_id
+     WHERE students.user_id = :userId
+     ORDER BY session_feedback.created_at DESC
+     LIMIT :limit`,
+    { userId, limit }
+  );
+  return rows;
+}
+
+export async function countFeedbackByStudent(userId) {
+  const [rows] = await pool.query(
+    `SELECT COUNT(*) AS total
+     FROM students
+     JOIN session_feedback ON session_feedback.student_id = students.id
+     WHERE students.user_id = :userId`,
+    { userId }
+  );
+  return rows[0]?.total ?? 0;
+}

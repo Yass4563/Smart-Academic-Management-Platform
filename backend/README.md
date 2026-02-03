@@ -33,6 +33,7 @@ npm run dev
 - `POST /api/auth/login`
 - `GET /api/auth/me`
 - `GET /api/admin/branches`
+- `GET /api/admin/overview`
 - `POST /api/admin/branches`
 - `GET /api/admin/modules`
 - `POST /api/admin/modules`
@@ -40,9 +41,14 @@ npm run dev
 - `GET /api/admin/teachers`
 - `POST /api/admin/students/import`
 - `GET /api/admin/students`
+- `POST /api/admin/students/enroll`
+
+Import file supports columns: `Full Name`, `Email`, and `Branch` (branch code or name).
 - `GET /api/student/profile`
 - `GET /api/student/modules`
 - `GET /api/student/sessions`
+- `GET /api/student/overview`
+- `GET /api/student/attendance/history`
 - `POST /api/student/attendance/scan`
 - `POST /api/student/feedback`
 - `POST /api/student/pfe/submit`

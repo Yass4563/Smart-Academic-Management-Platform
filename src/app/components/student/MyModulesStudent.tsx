@@ -93,27 +93,31 @@ export function MyModulesStudent() {
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm text-gray-600">Sessions</span>
                   <span className="text-sm font-medium text-gray-900">
-                    {sessionsByModule[module.id]?.length ?? 0}
+                    {module.total_sessions ?? 0}
                   </span>
                 </div>
                 <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full"
-                    style={{ width: `${Math.min((sessionsByModule[module.id]?.length ?? 0) * 10, 100)}%` }}
+                    style={{ width: `${Math.min((module.total_sessions ?? 0) * 10, 100)}%` }}
                   ></div>
                 </div>
               </div>
 
               <div className="flex items-center justify-between py-2 border-b border-gray-100">
                 <span className="text-sm text-gray-600">Attendance</span>
-                <span className="font-semibold text-gray-900">-</span>
+                <span className="font-semibold text-gray-900">
+                  {module.present_count ?? 0}/{module.total_sessions ?? 0}
+                </span>
               </div>
 
               <div className="flex items-center justify-between py-2">
                 <span className="text-sm text-gray-600">Avg Understanding</span>
                 <div className="flex items-center gap-2">
                   <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                  <span className="font-semibold text-gray-900">-</span>
+                  <span className="font-semibold text-gray-900">
+                    {module.avg_score ? Number(module.avg_score).toFixed(1) : '0.0'}/9
+                  </span>
                 </div>
               </div>
             </div>

@@ -17,7 +17,18 @@ export async function enrollStudentInModule(studentId, moduleId) {
 
 export async function listStudentModules(userId) {
   const [rows] = await pool.query(
-    `SELECT modules.id, modules.name, modules.code
+    `SELECT modules.id,
+            modules.name,
+            modules.code,
+            (SELECT COUNT(*) FROM sessions WHERE sessions.module_id = modules.id) AS total_sessions,
+            (SELECT COUNT(*)
+             FROM attendance
+             JOIN sessions s2 ON s2.id = attendance.session_id
+             WHERE attendance.student_id = students.id AND s2.module_id = modules.id) AS present_count,
+            (SELECT AVG(sf.understanding_score)
+             FROM session_feedback sf
+             JOIN sessions s3 ON s3.id = sf.session_id
+             WHERE sf.student_id = students.id AND s3.module_id = modules.id) AS avg_score
      FROM students
      JOIN student_modules ON student_modules.student_id = students.id
      JOIN modules ON modules.id = student_modules.module_id

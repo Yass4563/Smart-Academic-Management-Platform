@@ -169,6 +169,18 @@ export async function importStudents(
   return requestForm("/api/admin/students/import", form, token);
 }
 
+export async function getAdminOverview(token: string) {
+  return request("/api/admin/overview", {}, token);
+}
+
+export async function enrollStudent(token: string, data: { studentId: number; moduleId: number }) {
+  return request(
+    "/api/admin/students/enroll",
+    { method: "POST", body: JSON.stringify(data) },
+    token
+  );
+}
+
 export async function getStudentModules(token: string) {
   return request("/api/student/modules", {}, token);
 }
@@ -221,6 +233,18 @@ export async function submitPfe(
   if (data.report) form.append("report", data.report);
   if (data.demo) form.append("demo", data.demo);
   return requestForm("/api/student/pfe/submit", form, token);
+}
+
+export async function getStudentOverview(token: string) {
+  return request("/api/student/overview", {}, token);
+}
+
+export async function getAttendanceHistory(token: string) {
+  return request("/api/student/attendance/history", {}, token);
+}
+
+export async function getStudentProfile(token: string) {
+  return request("/api/student/profile", {}, token);
 }
 
 export async function getTeacherModules(token: string) {
@@ -311,6 +335,21 @@ export async function gradeProject(
 ) {
   return request(
     "/api/teacher/projects/grade",
+    { method: "POST", body: JSON.stringify(data) },
+    token
+  );
+}
+
+export async function getAnnouncements(token: string) {
+  return request("/api/announcements", {}, token);
+}
+
+export async function createAnnouncement(
+  token: string,
+  data: { title: string; message: string }
+) {
+  return request(
+    "/api/announcements",
     { method: "POST", body: JSON.stringify(data) },
     token
   );

@@ -1,15 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { QrCode, CheckCircle, XCircle, Calendar, Clock } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
-import { scanAttendance } from '../../lib/api';
-
-const attendanceHistory = [
-  { id: 1, module: 'Web Development', session: 5, date: '2025-12-28', time: '09:02', status: 'present' },
-  { id: 2, module: 'Mobile Apps', session: 3, date: '2025-12-27', time: '14:01', status: 'present' },
-  { id: 3, module: 'Database Systems', session: 6, date: '2025-12-26', time: '10:35', status: 'present' },
-  { id: 4, module: 'Computer Networks', session: 4, date: '2025-12-25', time: '-', status: 'absent' },
-  { id: 5, module: 'Algorithms', session: 7, date: '2025-12-24', time: '11:03', status: 'present' },
-];
+import { getAttendanceHistory, scanAttendance } from '../../lib/api';
 
 export function ScanAttendance() {
   const { token } = useAuth();
@@ -17,6 +9,26 @@ export function ScanAttendance() {
   const [scanResult, setScanResult] = useState<'success' | 'error' | null>(null);
   const [qrToken, setQrToken] = useState('');
   const [error, setError] = useState('');
+  const [history, setHistory] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!token) return;
+    const load = async () => {
+      try {
+        const data = await getAttendanceHistory(token);
+        setHistory(data.history || []);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load attendance');
+      }
+    };
+    load();
+  }, [token]);
+
+  const stats = useMemo(() => {
+    const total = history.length;
+    const present = history.length;
+    return { total, present, rate: total ? Math.round((present / total) * 100) : 0 };
+  }, [history]);
 
   const handleScan = async () => {
     if (!token || !qrToken.trim()) {
@@ -27,6 +39,8 @@ export function ScanAttendance() {
     try {
       await scanAttendance(token, qrToken.trim());
       setScanResult('success');
+      const refreshed = await getAttendanceHistory(token);
+      setHistory(refreshed.history || []);
       setTimeout(() => {
         setShowScanner(false);
         setScanResult(null);
@@ -64,21 +78,15 @@ export function ScanAttendance() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
           <p className="text-sm text-gray-600 mb-1">Total Sessions</p>
-          <p className="text-2xl font-bold text-gray-900">
-            {attendanceHistory.filter(a => a.status === 'present').length + attendanceHistory.filter(a => a.status === 'absent').length}
-          </p>
+          <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
         </div>
         <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
           <p className="text-sm text-gray-600 mb-1">Present</p>
-          <p className="text-2xl font-bold text-green-600">
-            {attendanceHistory.filter(a => a.status === 'present').length}
-          </p>
+          <p className="text-2xl font-bold text-green-600">{stats.present}</p>
         </div>
         <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
           <p className="text-sm text-gray-600 mb-1">Attendance Rate</p>
-          <p className="text-2xl font-bold text-indigo-600">
-            {Math.round((attendanceHistory.filter(a => a.status === 'present').length / attendanceHistory.length) * 100)}%
-          </p>
+          <p className="text-2xl font-bold text-indigo-600">{stats.rate}%</p>
         </div>
       </div>
 
@@ -87,39 +95,34 @@ export function ScanAttendance() {
           <h3 className="font-semibold text-gray-900">Attendance History</h3>
         </div>
         <div className="divide-y divide-gray-200">
-          {attendanceHistory.map((record) => (
+          {history.map((record) => (
             <div key={record.id} className="p-4 hover:bg-gray-50 transition-colors">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                    record.status === 'present' ? 'bg-green-100' : 'bg-red-100'
-                  }`}>
-                    {record.status === 'present' ? (
-                      <CheckCircle className="w-6 h-6 text-green-600" />
-                    ) : (
-                      <XCircle className="w-6 h-6 text-red-600" />
-                    )}
+                  <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-green-100">
+                    <CheckCircle className="w-6 h-6 text-green-600" />
                   </div>
                   <div>
-                    <h4 className="font-medium text-gray-900">{record.module}</h4>
-                    <p className="text-sm text-gray-600">Session {record.session}</p>
+                    <h4 className="font-medium text-gray-900">{record.module_name}</h4>
+                    <p className="text-sm text-gray-600">{record.title}</p>
                   </div>
                 </div>
                 <div className="text-right">
                   <div className="flex items-center gap-2 text-gray-600 mb-1">
                     <Calendar className="w-4 h-4" />
-                    <span className="text-sm">{record.date}</span>
+                    <span className="text-sm">{record.session_date}</span>
                   </div>
-                  {record.time !== '-' && (
-                    <div className="flex items-center gap-2 text-gray-600">
-                      <Clock className="w-4 h-4" />
-                      <span className="text-sm">Scanned at {record.time}</span>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <Clock className="w-4 h-4" />
+                    <span className="text-sm">Scanned at {record.marked_at}</span>
+                  </div>
                 </div>
               </div>
             </div>
           ))}
+          {history.length === 0 && (
+            <div className="p-4 text-sm text-gray-500">No attendance records yet.</div>
+          )}
         </div>
       </div>
 
@@ -138,15 +141,6 @@ export function ScanAttendance() {
                     placeholder="Paste QR token"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none"
                   />
-
-                  <div className="border-4 border-dashed border-gray-300 rounded-lg p-8">
-                    <div className="w-full aspect-square bg-gray-100 rounded-lg flex items-center justify-center">
-                      <div className="text-center">
-                        <QrCode className="w-24 h-24 text-gray-400 mx-auto mb-3 animate-pulse" />
-                        <p className="text-gray-600">Use a QR scanner on mobile to get the token</p>
-                      </div>
-                    </div>
-                  </div>
 
                   {error && (
                     <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">

@@ -2,7 +2,18 @@ import { pool } from "../config/db.js";
 
 export async function listModules() {
   const [rows] = await pool.query(
-    `SELECT modules.id, modules.name, modules.code, modules.branch_id, branches.name AS branch_name
+    `SELECT modules.id,
+            modules.name,
+            modules.code,
+            modules.branch_id,
+            branches.name AS branch_name,
+            (SELECT COUNT(*) FROM student_modules WHERE student_modules.module_id = modules.id) AS student_count,
+            (SELECT users.full_name
+             FROM teacher_modules
+             JOIN teachers ON teachers.id = teacher_modules.teacher_id
+             JOIN users ON users.id = teachers.user_id
+             WHERE teacher_modules.module_id = modules.id
+             LIMIT 1) AS teacher_name
      FROM modules
      LEFT JOIN branches ON branches.id = modules.branch_id
      ORDER BY modules.name`

@@ -25,34 +25,43 @@ export function ModuleManagement() {
   const [error, setError] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
 
-  useEffect(() => {
+  const load = async () => {
     if (!token) {
       return;
     }
-    const load = async () => {
-      setLoading(true);
-      setError('');
-      try {
-        const [modulesData, branchesData] = await Promise.all([
-          getModules(token),
-          getBranches(token),
-        ]);
-        const normalizedModules = (modulesData.modules || []).map((module: any) => ({
-          id: module.id,
-          name: module.name,
-          code: module.code,
-          branchId: module.branch_id ?? module.branchId,
-          branchName: module.branch_name ?? module.branchName ?? null,
-        }));
-        setModules(normalizedModules);
-        setBranches(branchesData.branches || []);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load modules');
-      } finally {
-        setLoading(false);
-      }
-    };
+    setLoading(true);
+    setError('');
+    try {
+      const [modulesData, branchesData] = await Promise.all([
+        getModules(token),
+        getBranches(token),
+      ]);
+      const normalizedModules = (modulesData.modules || []).map((module: any) => ({
+        id: module.id,
+        name: module.name,
+        code: module.code,
+        branchId: module.branch_id ?? module.branchId,
+        branchName: module.branch_name ?? module.branchName ?? null,
+        studentCount: module.student_count ?? module.studentCount ?? 0,
+        teacherName: module.teacher_name ?? module.teacherName ?? null,
+      }));
+      setModules(normalizedModules);
+      setBranches(branchesData.branches || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load modules');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     load();
+  }, [token]);
+
+  useEffect(() => {
+    const refresh = () => load();
+    window.addEventListener('admin-data-updated', refresh as EventListener);
+    return () => window.removeEventListener('admin-data-updated', refresh as EventListener);
   }, [token]);
 
   const filteredModules = useMemo(() => {
@@ -183,16 +192,16 @@ export function ModuleManagement() {
               </div>
 
               <div className="space-y-3 mb-4">
-                <div className="flex items-center justify-between py-2 border-t border-gray-100">
-                  <span className="text-sm text-gray-600">Teacher</span>
-                  <span className="font-medium text-gray-900">Unassigned</span>
-                </div>
+              <div className="flex items-center justify-between py-2 border-t border-gray-100">
+                <span className="text-sm text-gray-600">Teacher</span>
+                <span className="font-medium text-gray-900">{module.teacherName || 'Unassigned'}</span>
+              </div>
                 <div className="flex items-center justify-between py-2 border-t border-gray-100">
                   <div className="flex items-center gap-2 text-gray-600">
                     <Users className="w-4 h-4" />
                     <span className="text-sm">Students</span>
                   </div>
-                  <span className="font-semibold text-gray-900">0</span>
+                <span className="font-semibold text-gray-900">{module.studentCount ?? 0}</span>
                 </div>
                 <div className="flex items-center justify-between py-2 border-t border-gray-100">
                   <div className="flex items-center gap-2 text-gray-600">
@@ -207,9 +216,6 @@ export function ModuleManagement() {
                 <span className="px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-700">
                   active
                 </span>
-                <button className="text-indigo-600 hover:text-indigo-700 font-medium text-sm">
-                  View Details
-                </button>
               </div>
             </div>
           ))}

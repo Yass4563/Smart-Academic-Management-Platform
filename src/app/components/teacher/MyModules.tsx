@@ -1,19 +1,42 @@
 import { useEffect, useState } from 'react';
 import { BookOpen, Users, Calendar, Clock } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
-import { getTeacherModules } from '../../lib/api';
+import { getModuleSessions, getTeacherModules } from '../../lib/api';
 
 export function MyModules() {
   const { token } = useAuth();
   const [modules, setModules] = useState<any[]>([]);
   const [error, setError] = useState('');
+  const schedule = modules
+    .flatMap((module) =>
+      (module.sessions || []).map((session: any) => ({
+        module: module.name,
+        date: session.session_date,
+        time: `${session.start_time} - ${session.end_time}`,
+      }))
+    )
+    .filter((session) => new Date(`${session.date}T${session.time.split(' ')[0]}`) >= new Date())
+    .sort((a, b) => new Date(`${a.date}T${a.time.split(' ')[0]}`).getTime() - new Date(`${b.date}T${b.time.split(' ')[0]}`).getTime())
+    .slice(0, 5);
 
   useEffect(() => {
     if (!token) return;
     const load = async () => {
       try {
         const data = await getTeacherModules(token);
-        setModules(data.modules || []);
+        const moduleList = data.modules || [];
+        const sessionLists = await Promise.all(
+          moduleList.map((module: any) => getModuleSessions(token, module.id))
+        );
+        const enriched = moduleList.map((module: any, idx: number) => {
+          const sessions = sessionLists[idx]?.sessions || [];
+          const upcoming = sessions.find((s: any) =>
+            new Date(`${s.session_date}T${s.start_time}`) >= new Date()
+          );
+          const completed = sessions.filter((s: any) => new Date(`${s.session_date}T${s.end_time}`) < new Date()).length;
+          return { ...module, sessions, nextSession: upcoming, completedSessions: completed };
+        });
+        setModules(enriched);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load modules');
       }
@@ -53,16 +76,27 @@ export function MyModules() {
                   <Users className="w-4 h-4" />
                   <span className="text-sm">Enrolled Students</span>
                 </div>
-                <span className="font-semibold text-gray-900">-</span>
+                <span className="font-semibold text-gray-900">{module.total_students ?? 0}</span>
               </div>
 
               <div className="py-2 border-t border-gray-100">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-600">Session Progress</span>
-                  <span className="text-sm font-medium text-gray-900">-</span>
+                  <span className="text-sm text-gray-600">Sessions</span>
+                  <span className="text-sm font-medium text-gray-900">
+                    {module.completedSessions}/{module.total_sessions ?? module.sessions.length}
+                  </span>
                 </div>
                 <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full" style={{ width: '30%' }}></div>
+                  <div
+                    className="h-full bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full"
+                    style={{
+                      width: `${
+                        module.total_sessions
+                          ? Math.min((module.completedSessions / module.total_sessions) * 100, 100)
+                          : 0
+                      }%`,
+                    }}
+                  ></div>
                 </div>
               </div>
 
@@ -72,15 +106,13 @@ export function MyModules() {
                   <span className="text-sm font-medium">Next Session</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-900">-</span>
-                  <span className="text-gray-600">Room -</span>
+                  <span className="text-gray-900">
+                    {module.nextSession ? `${module.nextSession.session_date} ${module.nextSession.start_time}` : '-'}
+                  </span>
                 </div>
               </div>
             </div>
 
-            <button className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium">
-              View Module Details
-            </button>
           </div>
         ))}
       </div>
@@ -90,7 +122,24 @@ export function MyModules() {
           <h3 className="font-semibold text-gray-900">This Week's Schedule</h3>
         </div>
         <div className="p-6">
-          <div className="text-sm text-gray-500">Schedule data will appear once sessions are created.</div>
+          {schedule.length === 0 ? (
+            <div className="text-sm text-gray-500">No upcoming sessions this week.</div>
+          ) : (
+            <div className="space-y-4">
+              {schedule.map((session, idx) => (
+                <div key={idx} className="flex items-center justify-between bg-indigo-50 p-3 rounded-lg">
+                  <div>
+                    <p className="font-medium text-gray-900">{session.module}</p>
+                    <p className="text-sm text-gray-600">{session.date}</p>
+                  </div>
+                  <div className="flex items-center gap-2 text-indigo-600">
+                    <Clock className="w-4 h-4" />
+                    <span className="text-sm font-medium">{session.time}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

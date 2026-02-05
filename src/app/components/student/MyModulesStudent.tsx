@@ -8,6 +8,9 @@ interface SessionItem {
   module_id: number;
   title: string;
   session_date: string;
+  start_time?: string;
+  end_time?: string;
+  qr_expires_at?: string | null;
 }
 
 export function MyModulesStudent() {
@@ -19,6 +22,24 @@ export function MyModulesStudent() {
   const [modules, setModules] = useState<any[]>([]);
   const [sessions, setSessions] = useState<SessionItem[]>([]);
   const [error, setError] = useState('');
+  const now = new Date();
+  const getDatePart = (sessionDate: string) =>
+    sessionDate?.includes('T') ? sessionDate.slice(0, 10) : sessionDate;
+  const getSessionDateTime = (sessionDate: string, time?: string) => {
+    const datePart = getDatePart(sessionDate);
+    return time ? new Date(`${datePart}T${time}`) : null;
+  };
+  const isCompletedSession = (session: SessionItem) => {
+    if (session.qr_expires_at) {
+      return new Date(session.qr_expires_at) <= now;
+    }
+    const end = getSessionDateTime(session.session_date, session.end_time);
+    return end ? end < now : false;
+  };
+  const completedSessions = useMemo(
+    () => sessions.filter((session) => isCompletedSession(session)),
+    [sessions]
+  );
 
   useEffect(() => {
     if (!token) return;
@@ -37,14 +58,14 @@ export function MyModulesStudent() {
     load();
   }, [token]);
 
-  const sessionsByModule = useMemo(() => {
-    return sessions.reduce<Record<number, SessionItem[]>>((acc, session) => {
+  const completedByModule = useMemo(() => {
+    return completedSessions.reduce<Record<number, SessionItem[]>>((acc, session) => {
       const moduleId = session.module_id;
       if (!acc[moduleId]) acc[moduleId] = [];
       acc[moduleId].push(session);
       return acc;
     }, {});
-  }, [sessions]);
+  }, [completedSessions]);
 
   const handleSubmitFeedback = async () => {
     if (!token || !selectedSession) return;
@@ -124,7 +145,7 @@ export function MyModulesStudent() {
 
             <button
               onClick={() => {
-                setSelectedSession(sessionsByModule[module.id]?.[0]?.id ?? null);
+                setSelectedSession(completedByModule[module.id]?.[0]?.id ?? null);
                 setShowFeedbackModal(true);
               }}
               className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
@@ -149,9 +170,9 @@ export function MyModulesStudent() {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none"
                 >
                   <option value="" disabled>Select session</option>
-                  {sessions.map((session) => (
+                  {completedSessions.map((session) => (
                     <option key={session.id} value={session.id}>
-                      {session.title} - {session.session_date}
+                      {session.title} - {getDatePart(session.session_date)}
                     </option>
                   ))}
                 </select>

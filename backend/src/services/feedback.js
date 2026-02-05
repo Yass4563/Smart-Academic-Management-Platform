@@ -25,14 +25,19 @@ export async function listFeedbackBySession(sessionId) {
 
 export async function feedbackSummaryByModule(moduleId) {
   const [rows] = await pool.query(
-    `SELECT sessions.id AS session_id, sessions.title, sessions.session_date,
+    `SELECT sessions.id AS session_id,
+            sessions.title,
+            DATE_FORMAT(sessions.session_date, '%Y-%m-%d') AS session_date,
+            sessions.start_time,
+            sessions.end_time,
+            sessions.qr_expires_at,
             AVG(session_feedback.understanding_score) AS avg_score,
             COUNT(session_feedback.id) AS responses
      FROM sessions
      LEFT JOIN session_feedback ON session_feedback.session_id = sessions.id
      WHERE sessions.module_id = :moduleId
      GROUP BY sessions.id
-     ORDER BY sessions.session_date DESC`,
+     ORDER BY sessions.session_date ASC, sessions.start_time ASC`,
     { moduleId }
   );
   return rows;

@@ -11,7 +11,15 @@ export async function createSession({ moduleId, title, sessionDate, startTime, e
 
 export async function listSessionsByModule(moduleId) {
   const [rows] = await pool.query(
-    `SELECT sessions.*,
+    `SELECT sessions.id,
+            sessions.module_id,
+            sessions.title,
+            DATE_FORMAT(sessions.session_date, '%Y-%m-%d') AS session_date,
+            sessions.start_time,
+            sessions.end_time,
+            sessions.qr_token,
+            sessions.qr_expires_at,
+            sessions.created_at,
             (SELECT COUNT(*) FROM attendance WHERE attendance.session_id = sessions.id) AS present_count,
             (SELECT COUNT(*) FROM student_modules WHERE student_modules.module_id = sessions.module_id) AS total_students
      FROM sessions
@@ -24,7 +32,15 @@ export async function listSessionsByModule(moduleId) {
 
 export async function listSessionsForStudent(userId) {
   const [rows] = await pool.query(
-    `SELECT sessions.*,
+    `SELECT sessions.id,
+            sessions.module_id,
+            sessions.title,
+            DATE_FORMAT(sessions.session_date, '%Y-%m-%d') AS session_date,
+            sessions.start_time,
+            sessions.end_time,
+            sessions.qr_token,
+            sessions.qr_expires_at,
+            sessions.created_at,
             modules.name AS module_name,
             modules.code AS module_code
      FROM students
@@ -40,13 +56,23 @@ export async function listSessionsForStudent(userId) {
 
 export async function listUpcomingSessionsForStudent(userId, limit = 5) {
   const [rows] = await pool.query(
-    `SELECT sessions.*, modules.name AS module_name
+    `SELECT sessions.id,
+            sessions.module_id,
+            sessions.title,
+            DATE_FORMAT(sessions.session_date, '%Y-%m-%d') AS session_date,
+            sessions.start_time,
+            sessions.end_time,
+            sessions.qr_token,
+            sessions.qr_expires_at,
+            sessions.created_at,
+            modules.name AS module_name
      FROM students
      JOIN student_modules ON student_modules.student_id = students.id
      JOIN sessions ON sessions.module_id = student_modules.module_id
      JOIN modules ON modules.id = sessions.module_id
      WHERE students.user_id = :userId
        AND CONCAT(sessions.session_date, ' ', sessions.start_time) >= NOW()
+       AND (sessions.qr_expires_at IS NULL OR sessions.qr_expires_at > NOW())
      ORDER BY sessions.session_date ASC, sessions.start_time ASC
      LIMIT :limit`,
     { userId, limit }

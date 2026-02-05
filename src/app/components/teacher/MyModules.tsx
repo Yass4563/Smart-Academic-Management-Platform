@@ -7,16 +7,36 @@ export function MyModules() {
   const { token } = useAuth();
   const [modules, setModules] = useState<any[]>([]);
   const [error, setError] = useState('');
+  const [now, setNow] = useState(() => new Date());
+  const getDatePart = (sessionDate: string) =>
+    sessionDate?.includes('T') ? sessionDate.slice(0, 10) : sessionDate;
+  const getSessionDateTime = (sessionDate: string, time: string) => {
+    const datePart = getDatePart(sessionDate);
+    return new Date(`${datePart}T${time}`);
+  };
+  const isCompletedSession = (session: any) => {
+    if (session.qr_expires_at) {
+      return new Date(session.qr_expires_at) <= now;
+    }
+    return getSessionDateTime(session.session_date, session.end_time) < now;
+  };
+  const weekLater = new Date(now);
+  weekLater.setDate(now.getDate() + 7);
   const schedule = modules
     .flatMap((module) =>
-      (module.sessions || []).map((session: any) => ({
-        module: module.name,
-        date: session.session_date,
-        time: `${session.start_time} - ${session.end_time}`,
-      }))
+      (module.sessions || []).map((session: any) => {
+        const start = getSessionDateTime(session.session_date, session.start_time);
+        return {
+          module: module.name,
+          date: getDatePart(session.session_date),
+          time: `${session.start_time} - ${session.end_time}`,
+          start,
+          completed: isCompletedSession(session),
+        };
+      })
     )
-    .filter((session) => new Date(`${session.date}T${session.time.split(' ')[0]}`) >= new Date())
-    .sort((a, b) => new Date(`${a.date}T${a.time.split(' ')[0]}`).getTime() - new Date(`${b.date}T${b.time.split(' ')[0]}`).getTime())
+    .filter((session) => !session.completed && session.start <= weekLater)
+    .sort((a, b) => a.start.getTime() - b.start.getTime())
     .slice(0, 5);
 
   useEffect(() => {
@@ -30,10 +50,13 @@ export function MyModules() {
         );
         const enriched = moduleList.map((module: any, idx: number) => {
           const sessions = sessionLists[idx]?.sessions || [];
-          const upcoming = sessions.find((s: any) =>
-            new Date(`${s.session_date}T${s.start_time}`) >= new Date()
+          const sortedByStart = [...sessions].sort(
+            (a: any, b: any) =>
+              getSessionDateTime(a.session_date, a.start_time).getTime() -
+              getSessionDateTime(b.session_date, b.start_time).getTime()
           );
-          const completed = sessions.filter((s: any) => new Date(`${s.session_date}T${s.end_time}`) < new Date()).length;
+          const upcoming = sortedByStart.find((s: any) => !isCompletedSession(s));
+          const completed = sessions.filter((s: any) => isCompletedSession(s)).length;
           return { ...module, sessions, nextSession: upcoming, completedSessions: completed };
         });
         setModules(enriched);
@@ -42,7 +65,12 @@ export function MyModules() {
       }
     };
     load();
-  }, [token]);
+  }, [token, now]);
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -107,7 +135,9 @@ export function MyModules() {
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-900">
-                    {module.nextSession ? `${module.nextSession.session_date} ${module.nextSession.start_time}` : '-'}
+                    {module.nextSession
+                      ? `${getDatePart(module.nextSession.session_date)} ${module.nextSession.start_time}`
+                      : '-'}
                   </span>
                 </div>
               </div>

@@ -43,6 +43,7 @@ export function ModuleManagement() {
         branchId: module.branch_id ?? module.branchId,
         branchName: module.branch_name ?? module.branchName ?? null,
         studentCount: module.student_count ?? module.studentCount ?? 0,
+        completedSessionCount: module.completed_session_count ?? module.completedSessionCount ?? 0,
         teacherName: module.teacher_name ?? module.teacherName ?? null,
       }));
       setModules(normalizedModules);
@@ -208,7 +209,7 @@ export function ModuleManagement() {
                     <Clock className="w-4 h-4" />
                     <span className="text-sm">Sessions</span>
                   </div>
-                  <span className="font-semibold text-gray-900">0</span>
+                  <span className="font-semibold text-gray-900">{module.completedSessionCount ?? 0}</span>
                 </div>
               </div>
 

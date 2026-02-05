@@ -11,6 +11,23 @@ export function TeacherOverview() {
   const [feedback, setFeedback] = useState<any[]>([]);
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [error, setError] = useState('');
+  const [now, setNow] = useState(() => new Date());
+
+  const getDatePart = (sessionDate: string) =>
+    sessionDate?.includes('T') ? sessionDate.slice(0, 10) : sessionDate;
+  const getSessionDateTime = (sessionDate: string, time: string) => {
+    const datePart = getDatePart(sessionDate);
+    return new Date(`${datePart}T${time}`);
+  };
+  const isCompletedSession = (session: any) => {
+    if (session.qr_expires_at) {
+      return new Date(session.qr_expires_at) <= now;
+    }
+    return getSessionDateTime(session.session_date, session.end_time) < now;
+  };
+  const sortByStartAsc = (a: any, b: any) =>
+    getSessionDateTime(a.session_date, a.start_time).getTime() -
+    getSessionDateTime(b.session_date, b.start_time).getTime();
 
   useEffect(() => {
     if (!token) return;
@@ -52,6 +69,11 @@ export function TeacherOverview() {
     load();
   }, [token]);
 
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+
   const stats = useMemo(() => {
     const moduleCount = modules.length;
     const totalStudents = modules.reduce((sum, module) => {
@@ -59,12 +81,11 @@ export function TeacherOverview() {
       const total = moduleSessions[0]?.total_students ?? 0;
       return sum + Number(total || 0);
     }, 0);
-    const now = new Date();
-    const weekLater = new Date();
+    const weekLater = new Date(now);
     weekLater.setDate(now.getDate() + 7);
     const sessionsThisWeek = sessions.filter((s) => {
-      const date = new Date(`${s.session_date}T${s.start_time}`);
-      return date >= now && date <= weekLater;
+      const date = getSessionDateTime(s.session_date, s.start_time);
+      return date >= now && date <= weekLater && !isCompletedSession(s);
     }).length;
     const attendanceRates = sessions
       .filter((s) => Number(s.total_students || 0) > 0)
@@ -73,28 +94,38 @@ export function TeacherOverview() {
       ? Math.round(attendanceRates.reduce((a, b) => a + b, 0) / attendanceRates.length)
       : 0;
     return { moduleCount, totalStudents, sessionsThisWeek, avgAttendance };
-  }, [modules, sessions]);
+  }, [modules, sessions, now]);
 
   const attendanceData = useMemo(() => {
-    return sessions.slice(0, 6).map((s, idx) => ({
+    const completed = sessions.filter((s) => isCompletedSession(s)).sort(sortByStartAsc);
+    const recent = completed.slice(-6);
+    return recent.map((s, idx) => ({
       session: `S${idx + 1}`,
       rate: s.total_students ? Math.round((s.present_count / s.total_students) * 100) : 0,
     }));
-  }, [sessions]);
+  }, [sessions, now]);
 
   const understandingData = useMemo(() => {
-    return feedback.slice(0, 6).map((s: any, idx: number) => ({
+    const completedFeedback = feedback
+      .filter((s: any) => isCompletedSession(s) && Number(s.responses ?? 0) > 0)
+      .sort(sortByStartAsc);
+    const recent = completedFeedback.slice(-6);
+    return recent.map((s: any, idx: number) => ({
       session: `S${idx + 1}`,
       avg: Number(s.avg_score ?? 0),
     }));
-  }, [feedback]);
+  }, [feedback, now]);
 
   const upcomingSessions = useMemo(() => {
     return sessions
-      .filter((s) => new Date(`${s.session_date}T${s.start_time}`) >= new Date())
-      .sort((a, b) => new Date(`${a.session_date}T${a.start_time}`).getTime() - new Date(`${b.session_date}T${b.start_time}`).getTime())
+      .filter((s) => !isCompletedSession(s) && getSessionDateTime(s.session_date, s.start_time) >= now)
+      .sort(
+        (a, b) =>
+          getSessionDateTime(a.session_date, a.start_time).getTime() -
+          getSessionDateTime(b.session_date, b.start_time).getTime()
+      )
       .slice(0, 5);
-  }, [sessions]);
+  }, [sessions, now]);
 
   const statsData = [
     { label: 'My Modules', value: stats.moduleCount, icon: BookOpen, color: 'bg-purple-500' },
@@ -175,7 +206,7 @@ export function TeacherOverview() {
                     <div className="flex items-center gap-4 mt-1 text-sm text-gray-600">
                       <div className="flex items-center gap-1">
                         <Clock className="w-4 h-4" />
-                        <span>{session.session_date} at {session.start_time}</span>
+                        <span>{getDatePart(session.session_date)} at {session.start_time}</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <Users className="w-4 h-4" />

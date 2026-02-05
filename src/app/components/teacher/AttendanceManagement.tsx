@@ -52,10 +52,17 @@ export function AttendanceManagement() {
   }, [token]);
 
   const filteredSessions = useMemo(() => {
-    return sessions.filter(session =>
-      session.moduleName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      session.title?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const now = new Date();
+    return sessions.filter((session) => {
+      const qrExpiresAt = session.qr_expires_at ? new Date(session.qr_expires_at) : null;
+      if (!qrExpiresAt || qrExpiresAt > now) {
+        return false;
+      }
+      return (
+        session.moduleName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        session.title?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    });
   }, [sessions, searchTerm]);
 
   const handleGenerateQr = async () => {
@@ -88,14 +95,16 @@ export function AttendanceManagement() {
     }
   };
 
-  const downloadExport = async (format: 'csv' | 'pdf') => {
-    if (!token || !selectedSession) return;
+  const downloadExport = async (format: 'csv' | 'pdf', sessionId?: number) => {
+    if (!token) return;
+    const targetSessionId = sessionId ?? selectedSession?.id;
+    if (!targetSessionId) return;
     try {
-      const blob = await exportAttendance(token, selectedSession.id, format);
+      const blob = await exportAttendance(token, targetSessionId, format);
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `attendance-session-${selectedSession.id}.${format}`;
+      link.download = `attendance-session-${targetSessionId}.${format}`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -223,7 +232,7 @@ export function AttendanceManagement() {
                     <button
                       onClick={() => {
                         setSelectedSession(session);
-                        downloadExport('csv');
+                        downloadExport('csv', session.id);
                       }}
                       className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors"
                     >

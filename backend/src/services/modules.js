@@ -8,6 +8,16 @@ export async function listModules() {
             modules.branch_id,
             branches.name AS branch_name,
             (SELECT COUNT(*) FROM student_modules WHERE student_modules.module_id = modules.id) AS student_count,
+            (SELECT COUNT(*)
+             FROM sessions
+             WHERE sessions.module_id = modules.id
+               AND (
+                 (sessions.qr_expires_at IS NOT NULL AND sessions.qr_expires_at <= NOW())
+                 OR (
+                   sessions.qr_expires_at IS NULL
+                   AND CONCAT(sessions.session_date, ' ', sessions.end_time) < NOW()
+                 )
+               )) AS completed_session_count,
             (SELECT users.full_name
              FROM teacher_modules
              JOIN teachers ON teachers.id = teacher_modules.teacher_id

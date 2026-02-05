@@ -9,6 +9,7 @@ export function SessionFeedback() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedModule, setSelectedModule] = useState<string>('');
   const [showQuestionsModal, setShowQuestionsModal] = useState(false);
+  const [exportError, setExportError] = useState('');
   const [modules, setModules] = useState<any[]>([]);
   const [summary, setSummary] = useState<any[]>([]);
   const [questions, setQuestions] = useState<any[]>([]);
@@ -82,9 +83,39 @@ export function SessionFeedback() {
       const data = await getSessionFeedback(token, sessionId);
       setQuestions(data.feedback || []);
       setShowQuestionsModal(true);
+      setExportError('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load questions');
     }
+  };
+
+  const downloadQuestionsCsv = () => {
+    if (!questions.length) {
+      setExportError('No questions to export.');
+      return;
+    }
+    const header = ['Student Name', 'Email', 'Question', 'Score'];
+    const rows = questions.map((item: any) => [
+      item.full_name ?? '',
+      item.email ?? '',
+      item.question ?? '',
+      item.understanding_score ?? '',
+    ]);
+    const escapeCell = (value: string) => `"${String(value).replace(/"/g, '""')}"`;
+    const csv = [header, ...rows]
+      .map((row) => row.map(escapeCell).join(','))
+      .join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'session-questions.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    setExportError('');
   };
 
   return (
@@ -221,6 +252,12 @@ export function SessionFeedback() {
               ))}
             </div>
 
+            {exportError && (
+              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+                {exportError}
+              </div>
+            )}
+
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setShowQuestionsModal(false)}
@@ -228,7 +265,10 @@ export function SessionFeedback() {
               >
                 Close
               </button>
-              <button className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+              <button
+                onClick={downloadQuestionsCsv}
+                className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+              >
                 Export All Questions
               </button>
             </div>

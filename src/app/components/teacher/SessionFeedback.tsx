@@ -67,8 +67,14 @@ export function SessionFeedback() {
   }, [token, selectedModule]);
 
   const filteredSessions = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    if (!query) {
+      return summary;
+    }
     return summary.filter((session) =>
-      session.title?.toLowerCase().includes(searchTerm.toLowerCase())
+      [session.title, session.session_date, session.start_time].some((value) =>
+        String(value ?? "").toLowerCase().includes(query)
+      )
     );
   }, [summary, searchTerm]);
 
@@ -122,7 +128,7 @@ export function SessionFeedback() {
     <div className="space-y-6">
       <div className="flex gap-4">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             type="text"
             placeholder="Search sessions..."

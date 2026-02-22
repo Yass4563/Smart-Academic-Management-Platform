@@ -78,9 +78,14 @@ export function TeacherManagement() {
   }, [token]);
 
   const filteredTeachers = useMemo(() => {
-    return teachers.filter(teacher =>
-      teacher.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      teacher.email.toLowerCase().includes(searchTerm.toLowerCase())
+    const query = searchTerm.trim().toLowerCase();
+    if (!query) {
+      return teachers;
+    }
+    return teachers.filter((teacher) =>
+      [teacher.fullName, teacher.email, teacher.title, ...(teacher.modules ?? [])].some((value) =>
+        String(value ?? "").toLowerCase().includes(query)
+      )
     );
   }, [teachers, searchTerm]);
 
@@ -162,7 +167,7 @@ export function TeacherManagement() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             type="text"
             placeholder="Search teachers..."

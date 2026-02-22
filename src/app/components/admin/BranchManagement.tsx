@@ -15,9 +15,14 @@ export function BranchManagement() {
   const [editingId, setEditingId] = useState<number | null>(null);
 
   const filteredBranches = useMemo(() => {
-    return branches.filter(branch =>
-      branch.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      branch.code.toLowerCase().includes(searchTerm.toLowerCase())
+    const query = searchTerm.trim().toLowerCase();
+    if (!query) {
+      return branches;
+    }
+    return branches.filter((branch) =>
+      [branch.name, branch.code].some((value) =>
+        String(value ?? "").toLowerCase().includes(query)
+      )
     );
   }, [branches, searchTerm]);
 
@@ -101,7 +106,7 @@ export function BranchManagement() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             type="text"
             placeholder="Search branches..."

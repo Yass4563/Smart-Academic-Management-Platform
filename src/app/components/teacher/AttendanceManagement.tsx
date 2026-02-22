@@ -52,17 +52,15 @@ export function AttendanceManagement() {
   }, [token]);
 
   const filteredSessions = useMemo(() => {
-    const now = new Date();
-    return sessions.filter((session) => {
-      const qrExpiresAt = session.qr_expires_at ? new Date(session.qr_expires_at) : null;
-      if (!qrExpiresAt || qrExpiresAt > now) {
-        return false;
-      }
-      return (
-        session.moduleName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        session.title?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    });
+    const query = searchTerm.trim().toLowerCase();
+    if (!query) {
+      return sessions;
+    }
+    return sessions.filter((session) =>
+      [session.moduleName, session.title, session.session_date, session.start_time].some((value) =>
+        String(value ?? "").toLowerCase().includes(query)
+      )
+    );
   }, [sessions, searchTerm]);
 
   const handleGenerateQr = async () => {
@@ -141,7 +139,7 @@ export function AttendanceManagement() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             type="text"
             placeholder="Search sessions..."

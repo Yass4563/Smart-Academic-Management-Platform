@@ -30,11 +30,15 @@ export function ProjectManagement() {
   }, [token]);
 
   const filteredProjects = useMemo(() => {
-    return projects.filter(project => {
-      const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        String(project.members ?? '').toLowerCase().includes(searchTerm.toLowerCase());
-      const status = project.grade !== null ? 'graded' : project.report_path ? 'submitted' : 'in-progress';
-      const matchesStatus = statusFilter === 'all' || status === statusFilter;
+    const query = searchTerm.trim().toLowerCase();
+    return projects.filter((project) => {
+      const matchesSearch =
+        !query ||
+        [project.name, project.members, project.student_name, project.supervisor].some((value) =>
+          String(value ?? "").toLowerCase().includes(query)
+        );
+      const status = project.grade !== null ? "graded" : project.report_path ? "submitted" : "in-progress";
+      const matchesStatus = statusFilter === "all" || status === statusFilter;
       return matchesSearch && matchesStatus;
     });
   }, [projects, searchTerm, statusFilter]);
@@ -79,7 +83,7 @@ export function ProjectManagement() {
     <div className="space-y-6">
       <div className="flex gap-4">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             type="text"
             placeholder="Search projects..."

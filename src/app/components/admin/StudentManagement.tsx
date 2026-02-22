@@ -66,12 +66,16 @@ export function StudentManagement() {
   }, [token]);
 
   const filteredStudents = useMemo(() => {
-    return students.filter(student => {
-      const matchesSearch = student.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        student.email.toLowerCase().includes(searchTerm.toLowerCase());
+    const query = searchTerm.trim().toLowerCase();
+    return students.filter((student) => {
+      const matchesSearch =
+        !query ||
+        [student.fullName, student.email, student.studentNumber].some((value) =>
+          String(value ?? "").toLowerCase().includes(query)
+        );
       const matchesBranch =
-        selectedBranch === 'all' ||
-        String(student.branchId ?? '') === selectedBranch;
+        selectedBranch === "all" ||
+        String(student.branchId ?? "") === selectedBranch;
       return matchesSearch && matchesBranch;
     });
   }, [students, searchTerm, selectedBranch]);
@@ -129,7 +133,7 @@ export function StudentManagement() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             type="text"
             placeholder="Search students..."

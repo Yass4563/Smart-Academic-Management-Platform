@@ -6,7 +6,16 @@ import { listTeacherModules, getTeacherIdByUser } from "../services/teachers.js"
 import { createSession, listSessionsByModule, updateSessionQr, getSession } from "../services/sessions.js";
 import { listAttendance } from "../services/attendance.js";
 import { listFeedbackBySession, feedbackSummaryByModule } from "../services/feedback.js";
-import { listProjectsByBranch, setProjectDeadline, addJuryMember, setProjectGrade } from "../services/pfe.js";
+import {
+  addJuryMember,
+  canTeacherGradeProject,
+  createProjectByTeacher,
+  isProjectCoordinator,
+  listProjectOptionsForTeacher,
+  listProjectsForTeacher,
+  setProjectDeadline,
+  setProjectGrade,
+} from "../services/pfe.js";
 
 const { createObjectCsvStringifier } = csvWriter;
 
@@ -136,8 +145,52 @@ export async function feedbackSummary(req, res, next) {
 
 export async function listProjects(req, res, next) {
   try {
-    const projects = await listProjectsByBranch(req.user.branchId);
+    const teacherId = await getTeacherIdByUser(req.user.id);
+    if (!teacherId) {
+      return res.status(400).json({ message: "Teacher profile missing" });
+    }
+    const projects = await listProjectsForTeacher(teacherId);
     return res.json({ projects });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function projectOptions(req, res, next) {
+  try {
+    const teacherId = await getTeacherIdByUser(req.user.id);
+    if (!teacherId) {
+      return res.status(400).json({ message: "Teacher profile missing" });
+    }
+    if (!req.user.branchId) {
+      return res.status(400).json({ message: "Teacher branch is missing." });
+    }
+    const options = await listProjectOptionsForTeacher(req.user.branchId, teacherId);
+    return res.json(options);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function createProject(req, res, next) {
+  try {
+    const teacherId = await getTeacherIdByUser(req.user.id);
+    if (!teacherId) {
+      return res.status(400).json({ message: "Teacher profile missing" });
+    }
+    if (!req.user.branchId) {
+      return res.status(400).json({ message: "Teacher branch is missing." });
+    }
+    const projectId = await createProjectByTeacher({
+      coordinatorTeacherId: teacherId,
+      branchId: req.user.branchId,
+      name: req.body.name,
+      githubLink: req.body.githubLink ?? null,
+      deadlineAt: req.body.deadlineAt ?? null,
+      studentIds: req.body.studentIds ?? [],
+      juryTeacherIds: req.body.juryTeacherIds ?? [],
+    });
+    return res.status(201).json({ projectId });
   } catch (error) {
     return next(error);
   }
@@ -145,6 +198,14 @@ export async function listProjects(req, res, next) {
 
 export async function setDeadline(req, res, next) {
   try {
+    const teacherId = await getTeacherIdByUser(req.user.id);
+    if (!teacherId) {
+      return res.status(400).json({ message: "Teacher profile missing" });
+    }
+    const isCoordinator = await isProjectCoordinator(req.body.projectId, teacherId);
+    if (!isCoordinator) {
+      return res.status(403).json({ message: "Only the coordinator can set project deadline." });
+    }
     await setProjectDeadline(req.body.projectId, req.body.deadlineAt);
     return res.status(204).end();
   } catch (error) {
@@ -154,11 +215,18 @@ export async function setDeadline(req, res, next) {
 
 export async function addJury(req, res, next) {
   try {
-    const teacherId = await getTeacherIdByUser(req.user.id);
-    if (!teacherId) {
+    const actorTeacherId = await getTeacherIdByUser(req.user.id);
+    if (!actorTeacherId) {
       return res.status(400).json({ message: "Teacher profile missing" });
     }
-    await addJuryMember(req.body.projectId, teacherId);
+    const isCoordinator = await isProjectCoordinator(req.body.projectId, actorTeacherId);
+    if (!isCoordinator) {
+      return res.status(403).json({ message: "Only the coordinator can assign jury members." });
+    }
+    if (Number(req.body.teacherId) === Number(actorTeacherId)) {
+      return res.status(400).json({ message: "Coordinator cannot assign themselves as jury." });
+    }
+    await addJuryMember(req.body.projectId, req.body.teacherId);
     return res.status(204).end();
   } catch (error) {
     return next(error);
@@ -167,6 +235,14 @@ export async function addJury(req, res, next) {
 
 export async function gradeProject(req, res, next) {
   try {
+    const teacherId = await getTeacherIdByUser(req.user.id);
+    if (!teacherId) {
+      return res.status(400).json({ message: "Teacher profile missing" });
+    }
+    const allowed = await canTeacherGradeProject(req.body.projectId, teacherId);
+    if (!allowed) {
+      return res.status(403).json({ message: "Only the coordinator or jury members can grade this project." });
+    }
     await setProjectGrade(req.body.projectId, req.body.grade);
     return res.status(204).end();
   } catch (error) {

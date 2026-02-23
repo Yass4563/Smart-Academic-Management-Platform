@@ -1,4 +1,5 @@
 import { pool } from "../config/db.js";
+import { enrollBranchStudentsInModule } from "./students.js";
 
 export async function listModules() {
   const [rows] = await pool.query(
@@ -36,7 +37,9 @@ export async function createModule({ name, code, branchId }) {
     "INSERT INTO modules (name, code, branch_id) VALUES (:name, :code, :branchId)",
     { name, code, branchId }
   );
-  return result.insertId;
+  const moduleId = result.insertId;
+  await enrollBranchStudentsInModule(branchId, moduleId);
+  return moduleId;
 }
 
 export async function updateModule(id, { name, code, branchId }) {

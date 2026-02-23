@@ -17,6 +17,18 @@ npm install
 npm run seed
 ```
 
+For quick deterministic demo data (teachers, students, sessions, attendance, PFE):
+
+```bash
+npm run seed:dev
+```
+
+To wipe only dev-seeded records:
+
+```bash
+npm run seed:dev:wipe
+```
+
 5. Start the API:
 
 ```bash
@@ -41,9 +53,8 @@ npm run dev
 - `GET /api/admin/teachers`
 - `POST /api/admin/students/import`
 - `GET /api/admin/students`
-- `POST /api/admin/students/enroll`
 
-Import file supports columns: `Full Name`, `Email`, and `Branch` (branch code or name).
+Import file supports columns: `Full Name`, `Code Apogée` (or `Student Number`), `Email`, and `Branch` (branch code or name).
 - `GET /api/student/profile`
 - `GET /api/student/modules`
 - `GET /api/student/sessions`
@@ -51,6 +62,7 @@ Import file supports columns: `Full Name`, `Email`, and `Branch` (branch code or
 - `GET /api/student/attendance/history`
 - `POST /api/student/attendance/scan`
 - `POST /api/student/feedback`
+- `GET /api/student/pfe/project`
 - `POST /api/student/pfe/submit`
 - `GET /api/teacher/modules`
 - `POST /api/teacher/sessions`
@@ -60,6 +72,8 @@ Import file supports columns: `Full Name`, `Email`, and `Branch` (branch code or
 - `GET /api/teacher/sessions/:sessionId/attendance/export?format=csv|pdf`
 - `GET /api/teacher/sessions/:sessionId/feedback`
 - `GET /api/teacher/modules/:moduleId/feedback-summary`
+- `GET /api/teacher/projects/options`
+- `POST /api/teacher/projects`
 - `GET /api/teacher/projects`
 - `POST /api/teacher/projects/deadline`
 - `POST /api/teacher/projects/jury`

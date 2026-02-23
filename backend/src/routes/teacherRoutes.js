@@ -12,6 +12,8 @@ import {
   feedbackBySession,
   feedbackSummary,
   listProjects,
+  projectOptions,
+  createProject,
   setDeadline,
   addJury,
   gradeProject,
@@ -79,6 +81,21 @@ router.get(
   feedbackSummary
 );
 
+router.get("/projects/options", projectOptions);
+
+router.post(
+  "/projects",
+  body("name").isString().notEmpty(),
+  body("studentIds").isArray({ min: 1 }),
+  body("studentIds.*").isInt({ min: 1 }),
+  body("juryTeacherIds").optional().isArray(),
+  body("juryTeacherIds.*").optional().isInt({ min: 1 }),
+  body("githubLink").optional({ nullable: true }).isURL(),
+  body("deadlineAt").optional({ nullable: true }).isISO8601(),
+  validate,
+  createProject
+);
+
 router.get("/projects", listProjects);
 
 router.post(
@@ -92,6 +109,7 @@ router.post(
 router.post(
   "/projects/jury",
   body("projectId").isInt({ min: 1 }),
+  body("teacherId").isInt({ min: 1 }),
   validate,
   addJury
 );

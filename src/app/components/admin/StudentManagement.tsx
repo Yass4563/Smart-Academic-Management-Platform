@@ -1,26 +1,33 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Upload, Search } from 'lucide-react';
-import { useAuth } from '../../lib/auth';
-import { enrollStudent, getBranches, getModules, getStudents, importStudents } from '../../lib/api';
-import type { Branch, Module, Student } from '../../types';
+import { useEffect, useMemo, useState } from "react";
+import { Upload, Search } from "lucide-react";
+import { useAuth } from "../../lib/auth";
+import { getBranches, getStudents, importStudents } from "../../lib/api";
+import type { Branch, Student } from "../../types";
 
 export function StudentManagement() {
   const { token } = useAuth();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedBranch, setSelectedBranch] = useState('all');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedBranch, setSelectedBranch] = useState("all");
   const [showImportModal, setShowImportModal] = useState(false);
-  const [showEnrollModal, setShowEnrollModal] = useState(false);
   const [branches, setBranches] = useState<Branch[]>([]);
-  const [modules, setModules] = useState<Module[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [importBranchId, setImportBranchId] = useState('');
+  const [error, setError] = useState("");
+  const [importBranchId, setImportBranchId] = useState("");
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importResult, setImportResult] = useState<string | null>(null);
   const [importDetails, setImportDetails] = useState<any[]>([]);
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-  const [selectedModuleId, setSelectedModuleId] = useState('');
+
+  const normalizeStudents = (rows: any[]) =>
+    rows.map((student: any) => ({
+      studentId: student.student_id,
+      userId: student.user_id,
+      fullName: student.full_name,
+      email: student.email,
+      branchId: student.branch_id,
+      branchName: student.branch_name ?? null,
+      codeApogee: student.code_apogee ?? null,
+    }));
 
   useEffect(() => {
     if (!token) {
@@ -28,36 +35,16 @@ export function StudentManagement() {
     }
     const load = async () => {
       setLoading(true);
-      setError('');
+      setError("");
       try {
-        const [studentsData, branchesData, modulesData] = await Promise.all([
+        const [studentsData, branchesData] = await Promise.all([
           getStudents(token),
           getBranches(token),
-          getModules(token),
         ]);
         setBranches(branchesData.branches || []);
-        setModules(
-          (modulesData.modules || []).map((module: any) => ({
-            id: module.id,
-            name: module.name,
-            code: module.code,
-            branchId: module.branch_id ?? module.branchId,
-            branchName: module.branch_name ?? module.branchName ?? null,
-          }))
-        );
-        setStudents(
-          (studentsData.students || []).map((student: any) => ({
-            studentId: student.student_id,
-            userId: student.user_id,
-            fullName: student.full_name,
-            email: student.email,
-            branchId: student.branch_id,
-            isActive: student.is_active,
-            studentNumber: student.student_number,
-          }))
-        );
+        setStudents(normalizeStudents(studentsData.students || []));
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load students');
+        setError(err instanceof Error ? err.message : "Failed to load students");
       } finally {
         setLoading(false);
       }
@@ -70,22 +57,21 @@ export function StudentManagement() {
     return students.filter((student) => {
       const matchesSearch =
         !query ||
-        [student.fullName, student.email, student.studentNumber].some((value) =>
+        [student.fullName, student.email, student.codeApogee, student.branchName].some((value) =>
           String(value ?? "").toLowerCase().includes(query)
         );
       const matchesBranch =
-        selectedBranch === "all" ||
-        String(student.branchId ?? "") === selectedBranch;
+        selectedBranch === "all" || String(student.branchId ?? "") === selectedBranch;
       return matchesSearch && matchesBranch;
     });
   }, [students, searchTerm, selectedBranch]);
 
   const handleImport = async () => {
     if (!token || !importFile) {
-      setError('Please select a file to import.');
+      setError("Please select a file to import.");
       return;
     }
-    setError('');
+    setError("");
     try {
       const result = await importStudents(
         token,
@@ -95,37 +81,10 @@ export function StudentManagement() {
       setImportResult(`Imported ${result.count} rows.`);
       setImportDetails(result.results || []);
       const studentsData = await getStudents(token);
-      setStudents(
-        (studentsData.students || []).map((student: any) => ({
-          studentId: student.student_id,
-          userId: student.user_id,
-          fullName: student.full_name,
-          email: student.email,
-          branchId: student.branch_id,
-          isActive: student.is_active,
-          studentNumber: student.student_number,
-        }))
-      );
-      window.dispatchEvent(new CustomEvent('admin-data-updated'));
+      setStudents(normalizeStudents(studentsData.students || []));
+      window.dispatchEvent(new CustomEvent("admin-data-updated"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to import students');
-    }
-  };
-
-  const handleEnroll = async () => {
-    if (!token || !selectedStudent || !selectedModuleId) {
-      setError('Select a student and module.');
-      return;
-    }
-    setError('');
-    try {
-      await enrollStudent(token, { studentId: selectedStudent.studentId, moduleId: Number(selectedModuleId) });
-      setShowEnrollModal(false);
-      setSelectedStudent(null);
-      setSelectedModuleId('');
-      window.dispatchEvent(new CustomEvent('admin-data-updated'));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to enroll student');
+      setError(err instanceof Error ? err.message : "Failed to import students");
     }
   };
 
@@ -150,8 +109,10 @@ export function StudentManagement() {
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none"
           >
             <option value="all">All Branches</option>
-            {branches.map(branch => (
-              <option key={branch.id} value={String(branch.id)}>{branch.name}</option>
+            {branches.map((branch) => (
+              <option key={branch.id} value={String(branch.id)}>
+                {branch.name}
+              </option>
             ))}
           </select>
 
@@ -165,7 +126,6 @@ export function StudentManagement() {
             <Upload className="w-5 h-5" />
             Import Excel
           </button>
-
         </div>
       </div>
 
@@ -175,25 +135,6 @@ export function StudentManagement() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
-          <p className="text-sm text-gray-600 mb-1">Total Students</p>
-          <p className="text-2xl font-bold text-gray-900">{students.length}</p>
-        </div>
-        <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
-          <p className="text-sm text-gray-600 mb-1">Active</p>
-          <p className="text-2xl font-bold text-green-600">
-            {students.filter(s => s.isActive).length}
-          </p>
-        </div>
-        <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
-          <p className="text-sm text-gray-600 mb-1">Inactive</p>
-          <p className="text-2xl font-bold text-orange-600">
-            {students.filter(s => !s.isActive).length}
-          </p>
-        </div>
-      </div>
-
       {loading ? (
         <div className="text-sm text-gray-500">Loading students...</div>
       ) : (
@@ -202,53 +143,20 @@ export function StudentManagement() {
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="text-left px-6 py-4 text-sm font-semibold text-gray-900">Student</th>
+                  <th className="text-left px-6 py-4 text-sm font-semibold text-gray-900">Student Name</th>
+                  <th className="text-left px-6 py-4 text-sm font-semibold text-gray-900">Code Apogee</th>
                   <th className="text-left px-6 py-4 text-sm font-semibold text-gray-900">Email</th>
-                  <th className="text-left px-6 py-4 text-sm font-semibold text-gray-900">Branch</th>
-                  <th className="text-left px-6 py-4 text-sm font-semibold text-gray-900">Status</th>
-                  <th className="text-left px-6 py-4 text-sm font-semibold text-gray-900">Student #</th>
-                  <th className="text-left px-6 py-4 text-sm font-semibold text-gray-900">Actions</th>
+                  <th className="text-left px-6 py-4 text-sm font-semibold text-gray-900">Branch Name</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {filteredStudents.map((student) => (
                   <tr key={student.studentId} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
-                          <span className="font-medium text-indigo-600">
-                            {student.fullName.split(' ').map(n => n[0]).join('')}
-                          </span>
-                        </div>
-                        <span className="font-medium text-gray-900">{student.fullName}</span>
-                      </div>
-                    </td>
+                    <td className="px-6 py-4 font-medium text-gray-900">{student.fullName}</td>
+                    <td className="px-6 py-4 text-gray-600">{student.codeApogee || "-"}</td>
                     <td className="px-6 py-4 text-gray-600">{student.email}</td>
-                    <td className="px-6 py-4">
-                      <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
-                        {branches.find(branch => branch.id === student.branchId)?.code || 'N/A'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        student.isActive
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-orange-100 text-orange-700'
-                      }`}>
-                        {student.isActive ? 'active' : 'inactive'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-gray-600">{student.studentNumber || '-'}</td>
-                    <td className="px-6 py-4">
-                      <button
-                        onClick={() => {
-                          setSelectedStudent(student);
-                          setShowEnrollModal(true);
-                        }}
-                        className="text-indigo-600 hover:text-indigo-700 font-medium"
-                      >
-                        Enroll Module
-                      </button>
+                    <td className="px-6 py-4 text-gray-600">
+                      {student.branchName || branches.find((branch) => branch.id === student.branchId)?.name || "-"}
                     </td>
                   </tr>
                 ))}
@@ -265,15 +173,17 @@ export function StudentManagement() {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Select Branch</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Default Branch (Optional)</label>
                 <select
                   value={importBranchId}
                   onChange={(e) => setImportBranchId(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none"
                 >
-                  <option value="">Select branch</option>
-                  {branches.map(branch => (
-                    <option key={branch.id} value={String(branch.id)}>{branch.name}</option>
+                  <option value="">Use branch column from file</option>
+                  {branches.map((branch) => (
+                    <option key={branch.id} value={String(branch.id)}>
+                      {branch.name}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -281,7 +191,9 @@ export function StudentManagement() {
               <label className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-indigo-400 transition-colors cursor-pointer">
                 <Upload className="w-12 h-12 text-gray-400 mx-auto mb-3" />
                 <p className="text-gray-600 mb-1">Click to upload or drag and drop</p>
-                <p className="text-sm text-gray-500">Excel file (.xlsx, .xls) with columns: Full Name, Email, Branch (code or name)</p>
+                <p className="text-sm text-gray-500">
+                  Excel columns: Full Name, Code Apogee, Email, Branch
+                </p>
                 <input
                   type="file"
                   accept=".xlsx,.xls"
@@ -290,9 +202,7 @@ export function StudentManagement() {
                 />
               </label>
 
-              {importFile && (
-                <p className="text-sm text-gray-600">Selected file: {importFile.name}</p>
-              )}
+              {importFile && <p className="text-sm text-gray-600">Selected file: {importFile.name}</p>}
 
               {importResult && (
                 <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-700">
@@ -323,42 +233,6 @@ export function StudentManagement() {
                 className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
               >
                 Import Students
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showEnrollModal && selectedStudent && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl max-w-md w-full p-6">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-6">Enroll Student</h2>
-            <div className="space-y-4">
-              <p className="text-sm text-gray-600">Student: {selectedStudent.fullName}</p>
-              <select
-                value={selectedModuleId}
-                onChange={(e) => setSelectedModuleId(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none"
-              >
-                <option value="">Select module</option>
-                {modules.map((module) => (
-                  <option key={module.id} value={module.id}>{module.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => setShowEnrollModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleEnroll}
-                className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-              >
-                Enroll
               </button>
             </div>
           </div>

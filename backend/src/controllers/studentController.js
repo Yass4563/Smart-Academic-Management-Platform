@@ -3,7 +3,24 @@ import { listStudentModules, getStudentIdByUser } from "../services/students.js"
 import { listSessionsForStudent, findSessionByQrToken, listUpcomingSessionsForStudent } from "../services/sessions.js";
 import { markAttendance, listAttendanceForStudent, attendanceRateByModule } from "../services/attendance.js";
 import { upsertFeedback, countFeedbackByStudent, listRecentFeedbackByStudent } from "../services/feedback.js";
-import { upsertProject } from "../services/pfe.js";
+import { getAssignedProjectForStudent, submitProjectLinks } from "../services/pfe.js";
+
+function isGoogleDriveLink(value) {
+  if (!value) {
+    return false;
+  }
+  try {
+    const url = new URL(String(value));
+    return (
+      url.hostname === "drive.google.com" ||
+      url.hostname.endsWith(".drive.google.com") ||
+      url.hostname === "docs.google.com" ||
+      url.hostname.endsWith(".docs.google.com")
+    );
+  } catch {
+    return false;
+  }
+}
 
 export async function getProfile(req, res, next) {
   try {
@@ -78,21 +95,43 @@ export async function submitProject(req, res, next) {
     if (!studentId) {
       return res.status(400).json({ message: "Student profile missing" });
     }
-    const reportFile = req.files?.report?.[0] ?? null;
-    const demoFile = req.files?.demo?.[0] ?? null;
 
-    const id = await upsertProject({
-      branchId: req.user.branchId,
+    const assignedProject = await getAssignedProjectForStudent(studentId);
+    if (!assignedProject) {
+      return res.status(403).json({ message: "You are not assigned to a PFE project." });
+    }
+
+    const reportLink = String(req.body.reportLink ?? "").trim();
+    const demoVideoLink = String(req.body.demoVideoLink ?? "").trim();
+    if (!isGoogleDriveLink(reportLink) || !isGoogleDriveLink(demoVideoLink)) {
+      return res.status(400).json({ message: "Report and demo must be valid Google Drive links." });
+    }
+
+    const submitted = await submitProjectLinks({
+      projectId: assignedProject.id,
       studentId,
-      name: req.body.name,
-      members: req.body.members ?? null,
-      supervisor: req.body.supervisor ?? null,
       githubLink: req.body.githubLink ?? null,
-      reportPath: reportFile ? `/uploads/${reportFile.filename}` : null,
-      demoVideoPath: demoFile ? `/uploads/${demoFile.filename}` : null,
+      reportLink,
+      demoVideoLink,
     });
+    if (!submitted) {
+      return res.status(403).json({ message: "You are not assigned to this project." });
+    }
 
-    return res.status(201).json({ projectId: id });
+    return res.status(201).json({ projectId: assignedProject.id });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function getMyProject(req, res, next) {
+  try {
+    const studentId = await getStudentIdByUser(req.user.id);
+    if (!studentId) {
+      return res.status(400).json({ message: "Student profile missing" });
+    }
+    const project = await getAssignedProjectForStudent(studentId);
+    return res.json({ project });
   } catch (error) {
     return next(error);
   }

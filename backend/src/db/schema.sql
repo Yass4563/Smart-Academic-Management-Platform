@@ -100,6 +100,7 @@ CREATE TABLE IF NOT EXISTS pfe_projects (
   id INT AUTO_INCREMENT PRIMARY KEY,
   branch_id INT NOT NULL,
   student_owner_id INT NOT NULL,
+  coordinator_teacher_id INT NULL,
   name VARCHAR(255) NOT NULL,
   members TEXT NULL,
   supervisor VARCHAR(255) NULL,
@@ -110,7 +111,18 @@ CREATE TABLE IF NOT EXISTS pfe_projects (
   grade DECIMAL(4,2) NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE CASCADE,
-  FOREIGN KEY (student_owner_id) REFERENCES students(id) ON DELETE CASCADE
+  FOREIGN KEY (student_owner_id) REFERENCES students(id) ON DELETE CASCADE,
+  FOREIGN KEY (coordinator_teacher_id) REFERENCES teachers(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS pfe_project_students (
+  project_id INT NOT NULL,
+  student_id INT NOT NULL,
+  assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (project_id, student_id),
+  UNIQUE KEY uniq_student_pfe_project (student_id),
+  FOREIGN KEY (project_id) REFERENCES pfe_projects(id) ON DELETE CASCADE,
+  FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS pfe_jury (

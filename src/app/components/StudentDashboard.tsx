@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { 
   LayoutDashboard, 
   BookOpen, 
@@ -15,6 +15,8 @@ import { ScanAttendance } from './student/ScanAttendance';
 import { ProjectSubmission } from './student/ProjectSubmission';
 import { StudentProfile } from './student/StudentProfile';
 import type { User as AppUser } from '../types';
+import { useAuth } from '../lib/auth';
+import { getMyPfeProject } from '../lib/api';
 
 interface StudentDashboardProps {
   onLogout: () => void;
@@ -22,16 +24,41 @@ interface StudentDashboardProps {
 }
 
 export function StudentDashboard({ onLogout, user }: StudentDashboardProps) {
+  const { token } = useAuth();
   const [activeTab, setActiveTab] = useState<'overview' | 'modules' | 'attendance' | 'project' | 'profile'>('overview');
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [hasAssignedProject, setHasAssignedProject] = useState(false);
+
+  useEffect(() => {
+    if (!token) {
+      setHasAssignedProject(false);
+      return;
+    }
+    const load = async () => {
+      try {
+        const data = await getMyPfeProject(token);
+        const assigned = Boolean(data.project);
+        setHasAssignedProject(assigned);
+        if (!assigned) {
+          setActiveTab((prev) => (prev === "project" ? "overview" : prev));
+        }
+      } catch {
+        setHasAssignedProject(false);
+      }
+    };
+    load();
+  }, [token]);
 
   const menuItems = [
     { id: 'overview', label: 'Overview', icon: LayoutDashboard },
     { id: 'modules', label: 'My Modules', icon: BookOpen },
     { id: 'attendance', label: 'Scan QR', icon: QrCode },
-    { id: 'project', label: 'PFE Project', icon: FolderOpen },
     { id: 'profile', label: 'Profile', icon: User },
   ] as const;
+
+  const finalMenuItems = hasAssignedProject
+    ? [...menuItems.slice(0, 3), { id: 'project', label: 'PFE Project', icon: FolderOpen }, menuItems[3]]
+    : menuItems;
 
   const initials = useMemo(() => {
     const name = user?.fullName || user?.email || 'Student';
@@ -57,7 +84,7 @@ export function StudentDashboard({ onLogout, user }: StudentDashboardProps) {
         </div>
 
         <nav className="flex-1 p-4 space-y-2">
-          {menuItems.map((item) => {
+          {finalMenuItems.map((item) => {
             const Icon = item.icon;
             return (
               <button
@@ -91,7 +118,7 @@ export function StudentDashboard({ onLogout, user }: StudentDashboardProps) {
         <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-8">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
-              {menuItems.find(item => item.id === activeTab)?.label}
+              {finalMenuItems.find(item => item.id === activeTab)?.label || 'Overview'}
             </h1>
             <p className="text-sm text-gray-600">{user?.branchId ? `Branch ID: ${user.branchId}` : 'My Branch'}</p>
           </div>
@@ -110,7 +137,7 @@ export function StudentDashboard({ onLogout, user }: StudentDashboardProps) {
           {activeTab === 'overview' && <StudentOverview />}
           {activeTab === 'modules' && <MyModulesStudent />}
           {activeTab === 'attendance' && <ScanAttendance />}
-          {activeTab === 'project' && <ProjectSubmission />}
+          {activeTab === 'project' && hasAssignedProject && <ProjectSubmission />}
           {activeTab === 'profile' && <StudentProfile />}
         </div>
       </main>

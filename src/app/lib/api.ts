@@ -60,7 +60,10 @@ export async function getBranches(token: string) {
   return request("/api/admin/branches", {}, token);
 }
 
-export async function createBranch(token: string, data: { name: string; code: string }) {
+export async function createBranch(
+  token: string,
+  data: { name: string; code: string; modules?: Array<{ name: string; code: string }> }
+) {
   return request(
     "/api/admin/branches",
     {
@@ -173,14 +176,6 @@ export async function getAdminOverview(token: string) {
   return request("/api/admin/overview", {}, token);
 }
 
-export async function enrollStudent(token: string, data: { studentId: number; moduleId: number }) {
-  return request(
-    "/api/admin/students/enroll",
-    { method: "POST", body: JSON.stringify(data) },
-    token
-  );
-}
-
 export async function getStudentModules(token: string) {
   return request("/api/student/modules", {}, token);
 }
@@ -217,22 +212,23 @@ export async function submitFeedback(
 export async function submitPfe(
   token: string,
   data: {
-    name: string;
-    members?: string;
-    supervisor?: string;
+    reportLink: string;
+    demoVideoLink: string;
     githubLink?: string;
-    report?: File | null;
-    demo?: File | null;
   }
 ) {
-  const form = new FormData();
-  form.append("name", data.name);
-  if (data.members) form.append("members", data.members);
-  if (data.supervisor) form.append("supervisor", data.supervisor);
-  if (data.githubLink) form.append("githubLink", data.githubLink);
-  if (data.report) form.append("report", data.report);
-  if (data.demo) form.append("demo", data.demo);
-  return requestForm("/api/student/pfe/submit", form, token);
+  return request(
+    "/api/student/pfe/submit",
+    {
+      method: "POST",
+      body: JSON.stringify(data),
+    },
+    token
+  );
+}
+
+export async function getMyPfeProject(token: string) {
+  return request("/api/student/pfe/project", {}, token);
 }
 
 export async function getStudentOverview(token: string) {
@@ -310,6 +306,27 @@ export async function getProjects(token: string) {
   return request("/api/teacher/projects", {}, token);
 }
 
+export async function getProjectOptions(token: string) {
+  return request("/api/teacher/projects/options", {}, token);
+}
+
+export async function createProject(
+  token: string,
+  data: {
+    name: string;
+    studentIds: number[];
+    juryTeacherIds?: number[];
+    githubLink?: string | null;
+    deadlineAt?: string | null;
+  }
+) {
+  return request(
+    "/api/teacher/projects",
+    { method: "POST", body: JSON.stringify(data) },
+    token
+  );
+}
+
 export async function setProjectDeadline(
   token: string,
   data: { projectId: number; deadlineAt: string }
@@ -321,7 +338,10 @@ export async function setProjectDeadline(
   );
 }
 
-export async function addProjectJury(token: string, data: { projectId: number }) {
+export async function addProjectJury(
+  token: string,
+  data: { projectId: number; teacherId: number }
+) {
   return request(
     "/api/teacher/projects/jury",
     { method: "POST", body: JSON.stringify(data) },

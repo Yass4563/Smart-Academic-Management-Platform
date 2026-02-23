@@ -13,12 +13,44 @@ export async function listBranches() {
   return rows;
 }
 
-export async function createBranch({ name, code }) {
-  const [result] = await pool.query(
-    "INSERT INTO branches (name, code) VALUES (:name, :code)",
-    { name, code }
-  );
-  return result.insertId;
+export async function createBranch({ name, code, modules = [] }) {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [result] = await connection.query(
+      "INSERT INTO branches (name, code) VALUES (:name, :code)",
+      { name, code }
+    );
+    const branchId = result.insertId;
+
+    for (const module of modules) {
+      const moduleName = String(module?.name ?? "").trim();
+      const moduleCode = String(module?.code ?? "").trim();
+      if (!moduleName || !moduleCode) {
+        continue;
+      }
+      const [moduleResult] = await connection.query(
+        "INSERT INTO modules (name, code, branch_id) VALUES (:name, :code, :branchId)",
+        { name: moduleName, code: moduleCode, branchId }
+      );
+      await connection.query(
+        `INSERT IGNORE INTO student_modules (student_id, module_id)
+         SELECT students.id, :moduleId
+         FROM students
+         JOIN users ON users.id = students.user_id
+         WHERE users.branch_id = :branchId`,
+        { branchId, moduleId: moduleResult.insertId }
+      );
+    }
+
+    await connection.commit();
+    return branchId;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
 }
 
 export async function updateBranch(id, { name, code }) {

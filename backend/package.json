@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
-    "seed": "node src/db/seed.js"
+    "seed": "node src/db/seed.js",
+    "seed:dev": "node src/db/seed-dev.js",
+    "seed:dev:wipe": "node src/db/seed-dev.js --wipe-only"
   },
   "dependencies": {
     "bcryptjs": "2.4.3",

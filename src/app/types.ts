@@ -41,6 +41,6 @@ export interface Student {
   fullName: string;
   email: string;
   branchId: number | null;
-  isActive: number;
-  studentNumber?: string | null;
+  branchName?: string | null;
+  codeApogee?: string | null;
 }

@@ -5,6 +5,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { env } from "./config/env.js";
 import { pingDb } from "./config/db.js";
+import { applyMigrations } from "./db/migrate.js";
 import authRoutes from "./routes/authRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import studentRoutes from "./routes/studentRoutes.js";
@@ -58,7 +59,16 @@ app.use("/api/announcements", announcementRoutes);
 app.use(notFound);
 app.use(errorHandler);
 
-app.listen(env.port, () => {
+async function startServer() {
+  await applyMigrations();
+  app.listen(env.port, () => {
+    // eslint-disable-next-line no-console
+    console.log(`Backend listening on :${env.port}`);
+  });
+}
+
+startServer().catch((error) => {
   // eslint-disable-next-line no-console
-  console.log(`Backend listening on :${env.port}`);
+  console.error("Failed to start backend:", error);
+  process.exit(1);
 });

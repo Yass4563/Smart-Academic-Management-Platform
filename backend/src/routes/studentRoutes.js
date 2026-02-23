@@ -2,7 +2,6 @@ import { Router } from "express";
 import { body } from "express-validator";
 import { requireAuth, requireRole } from "../middlewares/auth.js";
 import { validate } from "../middlewares/validate.js";
-import { upload } from "../utils/upload.js";
 import {
   getProfile,
   getModules,
@@ -11,6 +10,7 @@ import {
   getAttendanceHistory,
   scanAttendance,
   submitFeedback,
+  getMyProject,
   submitProject,
 } from "../controllers/studentController.js";
 
@@ -39,13 +39,13 @@ router.post(
   submitFeedback
 );
 
+router.get("/pfe/project", getMyProject);
+
 router.post(
   "/pfe/submit",
-  upload.fields([
-    { name: "report", maxCount: 1 },
-    { name: "demo", maxCount: 1 },
-  ]),
-  body("name").isString().notEmpty(),
+  body("reportLink").isURL(),
+  body("demoVideoLink").isURL(),
+  body("githubLink").optional({ nullable: true }).isURL(),
   validate,
   submitProject
 );

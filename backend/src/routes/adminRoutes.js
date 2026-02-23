@@ -9,7 +9,6 @@ import {
   createModuleHandler,
   createTeacher,
   getAdminOverview,
-  enrollStudent,
   getStudents,
   getTeachers,
   deleteBranchHandler,
@@ -32,6 +31,9 @@ router.post(
   "/branches",
   body("name").isString().notEmpty(),
   body("code").isString().notEmpty(),
+  body("modules").optional().isArray(),
+  body("modules.*.name").optional().isString().notEmpty(),
+  body("modules.*.code").optional().isString().notEmpty(),
   validate,
   createBranchHandler
 );
@@ -89,12 +91,5 @@ router.post(
   importStudents
 );
 router.get("/students", getStudents);
-router.post(
-  "/students/enroll",
-  body("studentId").isInt({ min: 1 }),
-  body("moduleId").isInt({ min: 1 }),
-  validate,
-  enrollStudent
-);
 
 export default router;

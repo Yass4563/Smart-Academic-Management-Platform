@@ -6,7 +6,7 @@ import { createUser, findUserByEmail } from "../services/users.js";
 import { createBranch, deleteBranch, listBranches, updateBranch } from "../services/branches.js";
 import { createModule, deleteModule, listModules, updateModule } from "../services/modules.js";
 import { createTeacherProfile, assignTeacherToModule } from "../services/teachers.js";
-import { createStudentProfile, enrollStudentInModule, listStudents } from "../services/students.js";
+import { createStudentProfile, listStudents } from "../services/students.js";
 import { listTeachers } from "../services/teachers.js";
 
 function generateTempPassword() {
@@ -22,6 +22,22 @@ function normalizeFullNameForPassword(fullName) {
     .trim();
 }
 
+function normalizeHeader(value) {
+  return String(value ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function findHeaderIndex(headers, candidates) {
+  const normalizedCandidates = candidates.map((candidate) =>
+    normalizeHeader(candidate)
+  );
+  return headers.findIndex((header) => normalizedCandidates.includes(header));
+}
+
 export async function getBranches(req, res, next) {
   try {
     const branches = await listBranches();
@@ -33,7 +49,19 @@ export async function getBranches(req, res, next) {
 
 export async function createBranchHandler(req, res, next) {
   try {
-    const id = await createBranch(req.body);
+    const modules = Array.isArray(req.body.modules)
+      ? req.body.modules
+          .map((module) => ({
+            name: String(module?.name ?? "").trim(),
+            code: String(module?.code ?? "").trim(),
+          }))
+          .filter((module) => module.name && module.code)
+      : [];
+    const id = await createBranch({
+      name: req.body.name,
+      code: req.body.code,
+      modules,
+    });
     return res.status(201).json({ id });
   } catch (error) {
     return next(error);
@@ -153,16 +181,6 @@ export async function getStudents(req, res, next) {
   }
 }
 
-export async function enrollStudent(req, res, next) {
-  try {
-    const { studentId, moduleId } = req.body;
-    await enrollStudentInModule(studentId, moduleId);
-    return res.status(204).end();
-  } catch (error) {
-    return next(error);
-  }
-}
-
 export async function importStudents(req, res, next) {
   try {
     const file = req.file;
@@ -181,19 +199,45 @@ export async function importStudents(req, res, next) {
     );
     const workbook = xlsx.read(file.buffer, { type: "buffer" });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    // Read raw rows and start from the second row (index 1) to skip headers.
     const rows = xlsx.utils.sheet_to_json(sheet, {
       header: 1,
       defval: "",
-      range: 1,
       blankrows: false,
     });
+    if (rows.length === 0) {
+      return res.status(201).json({ count: 0, results: [] });
+    }
+
+    const headers = (rows[0] || []).map((header) => normalizeHeader(header));
+    const nameIdx = findHeaderIndex(headers, ["full name", "student name", "name"]);
+    const apogeeIdx = findHeaderIndex(headers, [
+      "code apogee",
+      "code apogée",
+      "apogee",
+      "student number",
+    ]);
+    const emailIdx = findHeaderIndex(headers, ["email", "email address"]);
+    const branchIdx = findHeaderIndex(headers, ["branch", "branch name"]);
+    const hasHeader = nameIdx !== -1 || emailIdx !== -1 || branchIdx !== -1;
+    const dataRows = hasHeader ? rows.slice(1) : rows;
 
     const results = [];
-    for (const row of rows) {
-      const fullName = String(row[0] ?? "").trim();
-      const email = String(row[1] ?? "").trim();
-      const branchValue = String(row[2] ?? "").trim();
+    for (const row of dataRows) {
+      const fallbackEmailIdx = String(row[1] ?? "").includes("@") ? 1 : 2;
+      const fullName = String(row[nameIdx !== -1 ? nameIdx : 0] ?? "").trim();
+      const email = String(row[emailIdx !== -1 ? emailIdx : fallbackEmailIdx] ?? "").trim();
+      const fallbackApogeeIdx =
+        emailIdx === 1 || fallbackEmailIdx === 1 ? 2 : 1;
+      const apogeeColumnIdx = apogeeIdx !== -1 ? apogeeIdx : fallbackApogeeIdx;
+      const fallbackBranchIdx =
+        String(row[3] ?? "").trim() !== "" ? 3 : 2;
+      const codeApogee =
+        apogeeColumnIdx === (branchIdx !== -1 ? branchIdx : fallbackBranchIdx)
+          ? ""
+          : String(row[apogeeColumnIdx] ?? "").trim();
+      const branchValue = String(
+        row[branchIdx !== -1 ? branchIdx : fallbackBranchIdx] ?? ""
+      ).trim();
       if (!email || !fullName) {
         continue;
       }
@@ -229,7 +273,7 @@ export async function importStudents(req, res, next) {
         fullName,
         branchId,
       });
-      await createStudentProfile(userId, row.student_number ?? null);
+      await createStudentProfile(userId, codeApogee || null);
       results.push({ email, status: "created", password: generatedPassword });
     }
 

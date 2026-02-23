@@ -4,11 +4,19 @@ import { useAuth } from '../../lib/auth';
 import { createBranch, deleteBranch, getBranches, updateBranch } from '../../lib/api';
 import type { Branch } from '../../types';
 
+interface BranchModuleInput {
+  name: string;
+  code: string;
+}
+
 export function BranchManagement() {
   const { token } = useAuth();
   const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [formData, setFormData] = useState({ name: '', code: '' });
+  const [branchModules, setBranchModules] = useState<BranchModuleInput[]>([
+    { name: '', code: '' },
+  ]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -55,6 +63,7 @@ export function BranchManagement() {
   const openCreate = () => {
     setEditingId(null);
     setFormData({ name: '', code: '' });
+    setBranchModules([{ name: '', code: '' }]);
     setShowModal(true);
   };
 
@@ -78,12 +87,17 @@ export function BranchManagement() {
         await updateBranch(token, editingId, formData);
         setBranches((prev) => prev.map((b) => (b.id === editingId ? { ...b, ...formData } : b)));
       } else {
-        const result = await createBranch(token, formData);
+        const modules = branchModules
+          .map((module) => ({ name: module.name.trim(), code: module.code.trim() }))
+          .filter((module) => module.name && module.code);
+        const result = await createBranch(token, { ...formData, modules });
         setBranches((prev) => [...prev, { id: result.id, ...formData }]);
       }
       setShowModal(false);
       setFormData({ name: '', code: '' });
+      setBranchModules([{ name: '', code: '' }]);
       setEditingId(null);
+      window.dispatchEvent(new CustomEvent('admin-data-updated'));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save branch');
     }
@@ -216,6 +230,69 @@ export function BranchManagement() {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none"
                 />
               </div>
+
+              {!editingId && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-gray-700">Modules for this branch</label>
+                    <button
+                      type="button"
+                      onClick={() => setBranchModules((prev) => [...prev, { name: '', code: '' }])}
+                      className="text-sm text-indigo-600 hover:text-indigo-700"
+                    >
+                      + Add module
+                    </button>
+                  </div>
+                  <div className="space-y-3">
+                    {branchModules.map((module, index) => (
+                      <div key={index} className="grid grid-cols-5 gap-2">
+                        <input
+                          type="text"
+                          value={module.name}
+                          onChange={(e) =>
+                            setBranchModules((prev) =>
+                              prev.map((item, i) =>
+                                i === index ? { ...item, name: e.target.value } : item
+                              )
+                            )
+                          }
+                          placeholder="Module name"
+                          className="col-span-3 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none"
+                        />
+                        <input
+                          type="text"
+                          value={module.code}
+                          onChange={(e) =>
+                            setBranchModules((prev) =>
+                              prev.map((item, i) =>
+                                i === index ? { ...item, code: e.target.value } : item
+                              )
+                            )
+                          }
+                          placeholder="Code"
+                          className="col-span-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setBranchModules((prev) =>
+                              prev.length === 1
+                                ? [{ name: '', code: '' }]
+                                : prev.filter((_, i) => i !== index)
+                            )
+                          }
+                          className="col-span-1 px-2 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Students imported/assigned to this branch are auto-enrolled in its modules.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-3 mt-6">

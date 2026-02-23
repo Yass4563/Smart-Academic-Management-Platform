@@ -5,14 +5,18 @@ export async function createStudentProfile(userId, studentNumber = null) {
     "INSERT INTO students (user_id, student_number) VALUES (:userId, :studentNumber)",
     { userId, studentNumber }
   );
-  return result.insertId;
-}
-
-export async function enrollStudentInModule(studentId, moduleId) {
-  await pool.query(
-    "INSERT IGNORE INTO student_modules (student_id, module_id) VALUES (:studentId, :moduleId)",
-    { studentId, moduleId }
+  const studentId = result.insertId;
+  const [rows] = await pool.query(
+    `SELECT users.branch_id
+     FROM users
+     WHERE users.id = :userId`,
+    { userId }
   );
+  const branchId = rows[0]?.branch_id ?? null;
+  if (branchId) {
+    await enrollStudentInBranchModules(studentId, branchId);
+  }
+  return studentId;
 }
 
 export async function listStudentModules(userId) {
@@ -54,11 +58,33 @@ export async function listStudents() {
             users.full_name,
             users.email,
             users.branch_id,
-            users.is_active,
-            students.student_number
+            branches.name AS branch_name,
+            students.student_number AS code_apogee
      FROM students
      JOIN users ON users.id = students.user_id
+     LEFT JOIN branches ON branches.id = users.branch_id
      ORDER BY users.full_name`
   );
   return rows;
+}
+
+export async function enrollStudentInBranchModules(studentId, branchId) {
+  await pool.query(
+    `INSERT IGNORE INTO student_modules (student_id, module_id)
+     SELECT :studentId, modules.id
+     FROM modules
+     WHERE modules.branch_id = :branchId`,
+    { studentId, branchId }
+  );
+}
+
+export async function enrollBranchStudentsInModule(branchId, moduleId) {
+  await pool.query(
+    `INSERT IGNORE INTO student_modules (student_id, module_id)
+     SELECT students.id, :moduleId
+     FROM students
+     JOIN users ON users.id = students.user_id
+     WHERE users.branch_id = :branchId`,
+    { branchId, moduleId }
+  );
 }

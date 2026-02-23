@@ -29,6 +29,18 @@ To wipe only dev-seeded records:
 npm run seed:dev:wipe
 ```
 
+For a richer presentation dataset (all roles and major workflows):
+
+```bash
+npm run seed:presentation
+```
+
+To wipe only presentation-seeded records:
+
+```bash
+npm run seed:presentation:wipe
+```
+
 5. Start the API:
 
 ```bash

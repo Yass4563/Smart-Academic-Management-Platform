@@ -8,7 +8,9 @@
     "start": "node src/server.js",
     "seed": "node src/db/seed.js",
     "seed:dev": "node src/db/seed-dev.js",
-    "seed:dev:wipe": "node src/db/seed-dev.js --wipe-only"
+    "seed:dev:wipe": "node src/db/seed-dev.js --wipe-only",
+    "seed:presentation": "node src/db/seed-presentation.js",
+    "seed:presentation:wipe": "node src/db/seed-presentation.js --wipe-only"
   },
   "dependencies": {
     "bcryptjs": "2.4.3",

@@ -51,6 +51,18 @@ export async function getStudentIdByUser(userId) {
   return rows[0]?.id ?? null;
 }
 
+export async function isStudentEnrolledInModule(studentId, moduleId) {
+  const [rows] = await pool.query(
+    `SELECT 1
+     FROM student_modules
+     WHERE student_id = :studentId
+       AND module_id = :moduleId
+     LIMIT 1`,
+    { studentId, moduleId }
+  );
+  return rows.length > 0;
+}
+
 export async function listStudents() {
   const [rows] = await pool.query(
     `SELECT students.id AS student_id,
@@ -85,6 +97,18 @@ export async function enrollBranchStudentsInModule(branchId, moduleId) {
      FROM students
      JOIN users ON users.id = students.user_id
      WHERE users.branch_id = :branchId`,
+    { branchId, moduleId }
+  );
+}
+
+export async function removeNonBranchStudentsFromModule(branchId, moduleId) {
+  await pool.query(
+    `DELETE student_modules
+     FROM student_modules
+     JOIN students ON students.id = student_modules.student_id
+     JOIN users ON users.id = students.user_id
+     WHERE student_modules.module_id = :moduleId
+       AND (users.branch_id IS NULL OR users.branch_id <> :branchId)`,
     { branchId, moduleId }
   );
 }

@@ -41,6 +41,31 @@ export async function getTeacherIdByUser(userId) {
   return rows[0]?.id ?? null;
 }
 
+export async function canTeacherAccessModule(teacherId, moduleId) {
+  const [rows] = await pool.query(
+    `SELECT 1
+     FROM teacher_modules
+     WHERE teacher_id = :teacherId
+       AND module_id = :moduleId
+     LIMIT 1`,
+    { teacherId, moduleId }
+  );
+  return rows.length > 0;
+}
+
+export async function canTeacherAccessSession(teacherId, sessionId) {
+  const [rows] = await pool.query(
+    `SELECT 1
+     FROM sessions
+     JOIN teacher_modules ON teacher_modules.module_id = sessions.module_id
+     WHERE teacher_modules.teacher_id = :teacherId
+       AND sessions.id = :sessionId
+     LIMIT 1`,
+    { teacherId, sessionId }
+  );
+  return rows.length > 0;
+}
+
 export async function listTeachers() {
   const [rows] = await pool.query(
     `SELECT teachers.id AS teacher_id,

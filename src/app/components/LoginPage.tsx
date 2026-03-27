@@ -8,7 +8,6 @@ interface LoginPageProps {
 export function LoginPage({ onLogin }: LoginPageProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [selectedRole, setSelectedRole] = useState<'admin' | 'teacher' | 'student'>('student');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -40,27 +39,6 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">Select Role</label>
-              <div className="grid grid-cols-3 gap-3">
-                {(['student', 'teacher', 'admin'] as const).map((role) => (
-                  <button
-                    key={role}
-                    type="button"
-                    onClick={() => setSelectedRole(role)}
-                    className={`px-4 py-3 rounded-lg font-medium capitalize transition-all ${
-                      selectedRole === role
-                        ? 'bg-indigo-600 text-white shadow-md'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    {role}
-                  </button>
-                ))}
-              </div>
-              <p className="mt-2 text-xs text-gray-500">Role is verified after login.</p>
-            </div>
-
-            <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -83,21 +61,11 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="• • • • • • • •"
+                  placeholder="********"
                   className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none transition-all"
                   required
                 />
               </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <label className="flex items-center">
-                <input type="checkbox" className="w-4 h-4 text-indigo-600 border-gray-300 rounded" />
-                <span className="ml-2 text-sm text-gray-600">Remember me</span>
-              </label>
-              <a href="#" className="text-sm text-indigo-600 hover:text-indigo-700">
-                Forgot password?
-              </a>
             </div>
 
             {error && (

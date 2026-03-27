@@ -1,5 +1,5 @@
 import { pool } from "../config/db.js";
-import { enrollBranchStudentsInModule } from "./students.js";
+import { enrollBranchStudentsInModule, removeNonBranchStudentsFromModule } from "./students.js";
 
 export async function listModules() {
   const [rows] = await pool.query(
@@ -43,10 +43,26 @@ export async function createModule({ name, code, branchId }) {
 }
 
 export async function updateModule(id, { name, code, branchId }) {
+  const [existingRows] = await pool.query(
+    "SELECT branch_id FROM modules WHERE id = :id",
+    { id }
+  );
+  const existing = existingRows[0] ?? null;
+  if (!existing) {
+    const error = new Error("Module not found");
+    error.status = 404;
+    throw error;
+  }
+
   await pool.query(
     "UPDATE modules SET name = :name, code = :code, branch_id = :branchId WHERE id = :id",
     { id, name, code, branchId }
   );
+
+  if (Number(existing.branch_id) !== Number(branchId)) {
+    await removeNonBranchStudentsFromModule(branchId, id);
+    await enrollBranchStudentsInModule(branchId, id);
+  }
 }
 
 export async function deleteModule(id) {

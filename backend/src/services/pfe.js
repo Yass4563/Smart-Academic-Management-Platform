@@ -49,6 +49,21 @@ export async function createProjectByTeacher({
   try {
     await connection.beginTransaction();
 
+    const [coordinatorRows] = await connection.query(
+      `SELECT teachers.id
+       FROM teachers
+       JOIN users ON users.id = teachers.user_id
+       WHERE teachers.id = :coordinatorTeacherId
+         AND users.role = 'TEACHER'
+         AND users.is_active = 1
+         AND users.branch_id = :branchId
+       LIMIT 1`,
+      { coordinatorTeacherId, branchId }
+    );
+    if (coordinatorRows.length === 0) {
+      throw new Error("Coordinator must be an active teacher in the same branch.");
+    }
+
     const [allBranchStudents] = await connection.query(
       `SELECT students.id, users.full_name
        FROM students
@@ -78,11 +93,14 @@ export async function createProjectByTeacher({
         `SELECT teachers.id
          FROM teachers
          JOIN users ON users.id = teachers.user_id
-         WHERE users.role = 'TEACHER'`
+         WHERE users.role = 'TEACHER'
+           AND users.is_active = 1
+           AND users.branch_id = :branchId`,
+        { branchId }
       );
       const validJuryIds = new Set(juryTeachers.map((row) => Number(row.id)));
       if (uniqJuryTeacherIds.some((id) => !validJuryIds.has(id))) {
-        throw new Error("Some selected jury members are invalid.");
+        throw new Error("Some selected jury members are invalid or outside your branch.");
       }
     }
 
@@ -205,9 +223,10 @@ export async function listProjectOptionsForTeacher(branchId, teacherId) {
      FROM teachers
      JOIN users ON users.id = teachers.user_id
      WHERE users.is_active = 1
+       AND users.branch_id = :branchId
        AND teachers.id <> :teacherId
      ORDER BY users.full_name`,
-    { teacherId }
+    { branchId, teacherId }
   );
 
   return { students, teachers };
@@ -276,24 +295,27 @@ export async function submitProjectLinks({
 }
 
 export async function setProjectDeadline(projectId, deadlineAt) {
-  await pool.query(
+  const [result] = await pool.query(
     "UPDATE pfe_projects SET deadline_at = :deadlineAt WHERE id = :id",
     { id: projectId, deadlineAt }
   );
+  return result.affectedRows > 0;
 }
 
 export async function setProjectGrade(projectId, grade) {
-  await pool.query(
+  const [result] = await pool.query(
     "UPDATE pfe_projects SET grade = :grade WHERE id = :id",
     { id: projectId, grade }
   );
+  return result.affectedRows > 0;
 }
 
 export async function addJuryMember(projectId, teacherId) {
-  await pool.query(
+  const [result] = await pool.query(
     "INSERT IGNORE INTO pfe_jury (project_id, teacher_id) VALUES (:projectId, :teacherId)",
     { projectId, teacherId }
   );
+  return result.affectedRows > 0;
 }
 
 export async function isProjectCoordinator(projectId, teacherId) {
@@ -322,6 +344,37 @@ export async function canTeacherGradeProject(projectId, teacherId) {
              AND pfe_jury.teacher_id = :teacherId
          )
        )
+     LIMIT 1`,
+    { projectId, teacherId }
+  );
+  return rows.length > 0;
+}
+
+export async function getProjectMeta(projectId) {
+  const [rows] = await pool.query(
+    `SELECT id,
+            branch_id,
+            coordinator_teacher_id,
+            report_path,
+            demo_video_path
+     FROM pfe_projects
+     WHERE id = :projectId
+     LIMIT 1`,
+    { projectId }
+  );
+  return rows[0] ?? null;
+}
+
+export async function isTeacherEligibleAsJury(projectId, teacherId) {
+  const [rows] = await pool.query(
+    `SELECT 1
+     FROM pfe_projects
+     JOIN teachers ON teachers.id = :teacherId
+     JOIN users ON users.id = teachers.user_id
+     WHERE pfe_projects.id = :projectId
+       AND users.role = 'TEACHER'
+       AND users.is_active = 1
+       AND users.branch_id = pfe_projects.branch_id
      LIMIT 1`,
     { projectId, teacherId }
   );

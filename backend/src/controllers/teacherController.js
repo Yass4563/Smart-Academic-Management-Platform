@@ -2,7 +2,12 @@ import { nanoid } from "nanoid";
 import qrcode from "qrcode";
 import csvWriter from "csv-writer";
 import PDFDocument from "pdfkit";
-import { listTeacherModules, getTeacherIdByUser } from "../services/teachers.js";
+import {
+  canTeacherAccessModule,
+  canTeacherAccessSession,
+  listTeacherModules,
+  getTeacherIdByUser,
+} from "../services/teachers.js";
 import { createSession, listSessionsByModule, updateSessionQr, getSession } from "../services/sessions.js";
 import { listAttendance } from "../services/attendance.js";
 import { listFeedbackBySession, feedbackSummaryByModule } from "../services/feedback.js";
@@ -10,6 +15,8 @@ import {
   addJuryMember,
   canTeacherGradeProject,
   createProjectByTeacher,
+  getProjectMeta,
+  isTeacherEligibleAsJury,
   isProjectCoordinator,
   listProjectOptionsForTeacher,
   listProjectsForTeacher,
@@ -18,6 +25,15 @@ import {
 } from "../services/pfe.js";
 
 const { createObjectCsvStringifier } = csvWriter;
+
+async function getTeacherIdOrRespond(req, res) {
+  const teacherId = await getTeacherIdByUser(req.user.id);
+  if (!teacherId) {
+    res.status(400).json({ message: "Teacher profile missing" });
+    return null;
+  }
+  return teacherId;
+}
 
 export async function getModules(req, res, next) {
   try {
@@ -30,6 +46,14 @@ export async function getModules(req, res, next) {
 
 export async function createSessionHandler(req, res, next) {
   try {
+    const teacherId = await getTeacherIdOrRespond(req, res);
+    if (!teacherId) {
+      return;
+    }
+    const allowed = await canTeacherAccessModule(teacherId, Number(req.body.moduleId));
+    if (!allowed) {
+      return res.status(403).json({ message: "You cannot create sessions for this module." });
+    }
     const id = await createSession({
       moduleId: req.body.moduleId,
       title: req.body.title,
@@ -45,6 +69,14 @@ export async function createSessionHandler(req, res, next) {
 
 export async function getSessions(req, res, next) {
   try {
+    const teacherId = await getTeacherIdOrRespond(req, res);
+    if (!teacherId) {
+      return;
+    }
+    const allowed = await canTeacherAccessModule(teacherId, Number(req.params.moduleId));
+    if (!allowed) {
+      return res.status(403).json({ message: "You cannot access sessions for this module." });
+    }
     const sessions = await listSessionsByModule(req.params.moduleId);
     return res.json({ sessions });
   } catch (error) {
@@ -54,6 +86,14 @@ export async function getSessions(req, res, next) {
 
 export async function generateQr(req, res, next) {
   try {
+    const teacherId = await getTeacherIdOrRespond(req, res);
+    if (!teacherId) {
+      return;
+    }
+    const allowed = await canTeacherAccessModule(teacherId, Number(req.body.moduleId));
+    if (!allowed) {
+      return res.status(403).json({ message: "You cannot generate QR for this module." });
+    }
     const session = await getSession(req.body.moduleId, req.body.sessionId);
     if (!session) {
       return res.status(404).json({ message: "Session not found" });
@@ -70,6 +110,14 @@ export async function generateQr(req, res, next) {
 
 export async function attendanceBySession(req, res, next) {
   try {
+    const teacherId = await getTeacherIdOrRespond(req, res);
+    if (!teacherId) {
+      return;
+    }
+    const allowed = await canTeacherAccessSession(teacherId, Number(req.params.sessionId));
+    if (!allowed) {
+      return res.status(403).json({ message: "You cannot access attendance for this session." });
+    }
     const rows = await listAttendance(req.params.sessionId);
     return res.json({ attendance: rows });
   } catch (error) {
@@ -79,6 +127,14 @@ export async function attendanceBySession(req, res, next) {
 
 export async function exportAttendance(req, res, next) {
   try {
+    const teacherId = await getTeacherIdOrRespond(req, res);
+    if (!teacherId) {
+      return;
+    }
+    const allowed = await canTeacherAccessSession(teacherId, Number(req.params.sessionId));
+    if (!allowed) {
+      return res.status(403).json({ message: "You cannot export attendance for this session." });
+    }
     const rows = await listAttendance(req.params.sessionId);
     const format = String(req.query.format ?? "csv").toLowerCase();
     if (format === "pdf") {
@@ -127,6 +183,14 @@ export async function exportAttendance(req, res, next) {
 
 export async function feedbackBySession(req, res, next) {
   try {
+    const teacherId = await getTeacherIdOrRespond(req, res);
+    if (!teacherId) {
+      return;
+    }
+    const allowed = await canTeacherAccessSession(teacherId, Number(req.params.sessionId));
+    if (!allowed) {
+      return res.status(403).json({ message: "You cannot access feedback for this session." });
+    }
     const rows = await listFeedbackBySession(req.params.sessionId);
     return res.json({ feedback: rows });
   } catch (error) {
@@ -136,6 +200,14 @@ export async function feedbackBySession(req, res, next) {
 
 export async function feedbackSummary(req, res, next) {
   try {
+    const teacherId = await getTeacherIdOrRespond(req, res);
+    if (!teacherId) {
+      return;
+    }
+    const allowed = await canTeacherAccessModule(teacherId, Number(req.params.moduleId));
+    if (!allowed) {
+      return res.status(403).json({ message: "You cannot access feedback for this module." });
+    }
     const summary = await feedbackSummaryByModule(req.params.moduleId);
     return res.json({ summary });
   } catch (error) {
@@ -145,9 +217,9 @@ export async function feedbackSummary(req, res, next) {
 
 export async function listProjects(req, res, next) {
   try {
-    const teacherId = await getTeacherIdByUser(req.user.id);
+    const teacherId = await getTeacherIdOrRespond(req, res);
     if (!teacherId) {
-      return res.status(400).json({ message: "Teacher profile missing" });
+      return;
     }
     const projects = await listProjectsForTeacher(teacherId);
     return res.json({ projects });
@@ -158,9 +230,9 @@ export async function listProjects(req, res, next) {
 
 export async function projectOptions(req, res, next) {
   try {
-    const teacherId = await getTeacherIdByUser(req.user.id);
+    const teacherId = await getTeacherIdOrRespond(req, res);
     if (!teacherId) {
-      return res.status(400).json({ message: "Teacher profile missing" });
+      return;
     }
     if (!req.user.branchId) {
       return res.status(400).json({ message: "Teacher branch is missing." });
@@ -174,9 +246,9 @@ export async function projectOptions(req, res, next) {
 
 export async function createProject(req, res, next) {
   try {
-    const teacherId = await getTeacherIdByUser(req.user.id);
+    const teacherId = await getTeacherIdOrRespond(req, res);
     if (!teacherId) {
-      return res.status(400).json({ message: "Teacher profile missing" });
+      return;
     }
     if (!req.user.branchId) {
       return res.status(400).json({ message: "Teacher branch is missing." });
@@ -198,9 +270,13 @@ export async function createProject(req, res, next) {
 
 export async function setDeadline(req, res, next) {
   try {
-    const teacherId = await getTeacherIdByUser(req.user.id);
+    const teacherId = await getTeacherIdOrRespond(req, res);
     if (!teacherId) {
-      return res.status(400).json({ message: "Teacher profile missing" });
+      return;
+    }
+    const project = await getProjectMeta(req.body.projectId);
+    if (!project) {
+      return res.status(404).json({ message: "Project not found." });
     }
     const isCoordinator = await isProjectCoordinator(req.body.projectId, teacherId);
     if (!isCoordinator) {
@@ -215,9 +291,13 @@ export async function setDeadline(req, res, next) {
 
 export async function addJury(req, res, next) {
   try {
-    const actorTeacherId = await getTeacherIdByUser(req.user.id);
+    const actorTeacherId = await getTeacherIdOrRespond(req, res);
     if (!actorTeacherId) {
-      return res.status(400).json({ message: "Teacher profile missing" });
+      return;
+    }
+    const project = await getProjectMeta(req.body.projectId);
+    if (!project) {
+      return res.status(404).json({ message: "Project not found." });
     }
     const isCoordinator = await isProjectCoordinator(req.body.projectId, actorTeacherId);
     if (!isCoordinator) {
@@ -225,6 +305,12 @@ export async function addJury(req, res, next) {
     }
     if (Number(req.body.teacherId) === Number(actorTeacherId)) {
       return res.status(400).json({ message: "Coordinator cannot assign themselves as jury." });
+    }
+    const eligible = await isTeacherEligibleAsJury(req.body.projectId, req.body.teacherId);
+    if (!eligible) {
+      return res.status(400).json({
+        message: "Selected jury member must be an active teacher from the same branch as the project.",
+      });
     }
     await addJuryMember(req.body.projectId, req.body.teacherId);
     return res.status(204).end();
@@ -235,13 +321,20 @@ export async function addJury(req, res, next) {
 
 export async function gradeProject(req, res, next) {
   try {
-    const teacherId = await getTeacherIdByUser(req.user.id);
+    const teacherId = await getTeacherIdOrRespond(req, res);
     if (!teacherId) {
-      return res.status(400).json({ message: "Teacher profile missing" });
+      return;
+    }
+    const project = await getProjectMeta(req.body.projectId);
+    if (!project) {
+      return res.status(404).json({ message: "Project not found." });
     }
     const allowed = await canTeacherGradeProject(req.body.projectId, teacherId);
     if (!allowed) {
       return res.status(403).json({ message: "Only the coordinator or jury members can grade this project." });
+    }
+    if (!project.report_path || !project.demo_video_path) {
+      return res.status(400).json({ message: "Project must have both report and demo links before grading." });
     }
     await setProjectGrade(req.body.projectId, req.body.grade);
     return res.status(204).end();

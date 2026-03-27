@@ -102,3 +102,11 @@ export async function getSession(moduleId, sessionId) {
   );
   return rows[0] ?? null;
 }
+
+export async function getSessionById(sessionId) {
+  const [rows] = await pool.query(
+    "SELECT * FROM sessions WHERE id = :sessionId",
+    { sessionId }
+  );
+  return rows[0] ?? null;
+}

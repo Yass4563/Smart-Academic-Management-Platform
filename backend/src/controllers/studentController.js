@@ -1,6 +1,6 @@
 import { findUserById } from "../services/users.js";
-import { listStudentModules, getStudentIdByUser } from "../services/students.js";
-import { listSessionsForStudent, findSessionByQrToken, listUpcomingSessionsForStudent } from "../services/sessions.js";
+import { listStudentModules, getStudentIdByUser, isStudentEnrolledInModule } from "../services/students.js";
+import { listSessionsForStudent, findSessionByQrToken, getSessionById, listUpcomingSessionsForStudent } from "../services/sessions.js";
 import { markAttendance, listAttendanceForStudent, attendanceRateByModule } from "../services/attendance.js";
 import { upsertFeedback, countFeedbackByStudent, listRecentFeedbackByStudent } from "../services/feedback.js";
 import { getAssignedProjectForStudent, submitProjectLinks } from "../services/pfe.js";
@@ -63,6 +63,10 @@ export async function scanAttendance(req, res, next) {
     if (!studentId) {
       return res.status(400).json({ message: "Student profile missing" });
     }
+    const enrolled = await isStudentEnrolledInModule(studentId, session.module_id);
+    if (!enrolled) {
+      return res.status(403).json({ message: "You are not enrolled in this session module." });
+    }
     await markAttendance({ sessionId: session.id, studentId });
     return res.status(201).json({ message: "Attendance marked" });
   } catch (error) {
@@ -76,6 +80,14 @@ export async function submitFeedback(req, res, next) {
     const studentId = await getStudentIdByUser(req.user.id);
     if (!studentId) {
       return res.status(400).json({ message: "Student profile missing" });
+    }
+    const session = await getSessionById(sessionId);
+    if (!session) {
+      return res.status(404).json({ message: "Session not found" });
+    }
+    const enrolled = await isStudentEnrolledInModule(studentId, session.module_id);
+    if (!enrolled) {
+      return res.status(403).json({ message: "You are not enrolled in this session module." });
     }
     await upsertFeedback({
       sessionId,

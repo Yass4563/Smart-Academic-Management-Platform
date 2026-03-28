@@ -188,7 +188,7 @@ export function StudentManagement() {
                 </select>
               </div>
 
-              <label className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-indigo-400 transition-colors cursor-pointer">
+              <label className="block w-full border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-indigo-400 transition-colors cursor-pointer">
                 <Upload className="w-12 h-12 text-gray-400 mx-auto mb-3" />
                 <p className="text-gray-600 mb-1">Click to upload or drag and drop</p>
                 <p className="text-sm text-gray-500">

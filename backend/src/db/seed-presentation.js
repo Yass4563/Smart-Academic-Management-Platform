@@ -366,18 +366,18 @@ async function seedPresentationData() {
   }
 
   const studentDefs = [
-    { email: "pres.student.cs1@school.local", name: "Presentation Student CS One", branchId: branches.cs, apogee: "PRES-CS-001" },
-    { email: "pres.student.cs2@school.local", name: "Presentation Student CS Two", branchId: branches.cs, apogee: "PRES-CS-002" },
-    { email: "pres.student.cs3@school.local", name: "Presentation Student CS Three", branchId: branches.cs, apogee: "PRES-CS-003" },
-    { email: "pres.student.cs4@school.local", name: "Presentation Student CS Four", branchId: branches.cs, apogee: "PRES-CS-004" },
-    { email: "pres.student.ai1@school.local", name: "Presentation Student AI One", branchId: branches.ai, apogee: "PRES-AI-001" },
-    { email: "pres.student.ai2@school.local", name: "Presentation Student AI Two", branchId: branches.ai, apogee: "PRES-AI-002" },
-    { email: "pres.student.ai3@school.local", name: "Presentation Student AI Three", branchId: branches.ai, apogee: "PRES-AI-003" },
-    { email: "pres.student.ai4@school.local", name: "Presentation Student AI Four", branchId: branches.ai, apogee: "PRES-AI-004" },
-    { email: "pres.student.biz1@school.local", name: "Presentation Student Biz One", branchId: branches.biz, apogee: "PRES-BIZ-001" },
-    { email: "pres.student.biz2@school.local", name: "Presentation Student Biz Two", branchId: branches.biz, apogee: "PRES-BIZ-002" },
-    { email: "pres.student.biz3@school.local", name: "Presentation Student Biz Three", branchId: branches.biz, apogee: "PRES-BIZ-003" },
-    { email: "pres.student.biz4@school.local", name: "Presentation Student Biz Four", branchId: branches.biz, apogee: "PRES-BIZ-004" },
+    { email: "pres.student.cs1@school.local", name: "Presentation Student CS One", branchId: branches.cs, apogee: "PRES-CS-001", modules: [0, 1], attendance: 0.85 },
+    { email: "pres.student.cs2@school.local", name: "Presentation Student CS Two", branchId: branches.cs, apogee: "PRES-CS-002", modules: [0, 1, 2], attendance: 0.92 },
+    { email: "pres.student.cs3@school.local", name: "Presentation Student CS Three", branchId: branches.cs, apogee: "PRES-CS-003", modules: [1], attendance: 0.65 },
+    { email: "pres.student.cs4@school.local", name: "Presentation Student CS Four", branchId: branches.cs, apogee: "PRES-CS-004", modules: [0, 2], attendance: 0.78 },
+    { email: "pres.student.cs5@school.local", name: "Presentation Student CS Five", branchId: branches.cs, apogee: "PRES-CS-005", modules: [0, 1, 2], attendance: 0.88 },
+    { email: "pres.student.ai1@school.local", name: "Presentation Student AI One", branchId: branches.ai, apogee: "PRES-AI-001", modules: [0, 1], attendance: 0.80 },
+    { email: "pres.student.ai2@school.local", name: "Presentation Student AI Two", branchId: branches.ai, apogee: "PRES-AI-002", modules: [0, 2], attendance: 0.72 },
+    { email: "pres.student.ai3@school.local", name: "Presentation Student AI Three", branchId: branches.ai, apogee: "PRES-AI-003", modules: [0, 1, 2], attendance: 0.95 },
+    { email: "pres.student.ai4@school.local", name: "Presentation Student AI Four", branchId: branches.ai, apogee: "PRES-AI-004", modules: [1, 2], attendance: 0.55 },
+    { email: "pres.student.biz1@school.local", name: "Presentation Student Biz One", branchId: branches.biz, apogee: "PRES-BIZ-001", modules: [0, 1], attendance: 0.83 },
+    { email: "pres.student.biz2@school.local", name: "Presentation Student Biz Two", branchId: branches.biz, apogee: "PRES-BIZ-002", modules: [0, 2], attendance: 0.68 },
+    { email: "pres.student.biz3@school.local", name: "Presentation Student Biz Three", branchId: branches.biz, apogee: "PRES-BIZ-003", modules: [1, 2], attendance: 0.77 },
   ];
 
   const studentUserRecords = [];
@@ -418,20 +418,29 @@ async function seedPresentationData() {
         : student.branchId === branches.ai
           ? modules.ai
           : modules.biz;
-    for (const moduleId of moduleList) {
+    
+    for (const moduleIndex of student.modules) {
       await pool.query(
         "INSERT INTO student_modules (student_id, module_id) VALUES (:studentId, :moduleId)",
-        { studentId, moduleId }
+        { studentId, moduleId: moduleList[moduleIndex] }
       );
     }
   }
 
   const sessionSeeds = [
     { moduleId: modules.cs[0], title: "Project Scoping Workshop", dayOffset: -8, start: "09:00:00", end: "11:00:00" },
+    { moduleId: modules.cs[0], title: "Architecture Deep Dive", dayOffset: -6, start: "14:00:00", end: "16:00:00" },
     { moduleId: modules.cs[1], title: "Database Design Lab", dayOffset: -3, start: "13:00:00", end: "15:00:00" },
+    { moduleId: modules.cs[1], title: "Query Optimization Session", dayOffset: -1, start: "10:00:00", end: "12:00:00" },
+    { moduleId: modules.cs[2], title: "Cloud Infrastructure Basics", dayOffset: 1, start: "09:00:00", end: "11:00:00" },
     { moduleId: modules.ai[0], title: "Model Evaluation Clinic", dayOffset: -5, start: "10:00:00", end: "12:00:00" },
+    { moduleId: modules.ai[0], title: "Feature Engineering Workshop", dayOffset: -2, start: "15:00:00", end: "17:00:00" },
+    { moduleId: modules.ai[1], title: "Computer Vision Fundamentals", dayOffset: 0, start: "11:00:00", end: "13:00:00" },
     { moduleId: modules.ai[2], title: "NLP Demo Session", dayOffset: 2, start: "14:00:00", end: "16:00:00" },
+    { moduleId: modules.ai[2], title: "Transformer Models Discussion", dayOffset: 4, start: "10:00:00", end: "12:00:00" },
+    { moduleId: modules.biz[0], title: "Financial Analysis Workshop", dayOffset: -4, start: "09:30:00", end: "11:30:00" },
     { moduleId: modules.biz[1], title: "Dashboard Storytelling", dayOffset: -2, start: "08:30:00", end: "10:30:00" },
+    { moduleId: modules.biz[1], title: "Data Visualization Best Practices", dayOffset: 1, start: "13:00:00", end: "15:00:00" },
     { moduleId: modules.biz[2], title: "Strategy Review", dayOffset: 3, start: "11:00:00", end: "13:00:00" },
   ];
 
@@ -454,63 +463,134 @@ async function seedPresentationData() {
     { ids: [...modules.cs, ...modules.ai, ...modules.biz] }
   );
 
+  // Create student maps to track individual attendance rates
+  const studentAttendanceMap = new Map();
+  const studentModulesMap = new Map();
+  for (const student of studentUserRecords) {
+    const studentDef = studentDefs.find(s => s.email === student.email);
+    if (studentDef) {
+      studentAttendanceMap.set(student.userId, studentDef.attendance);
+      studentModulesMap.set(student.userId, studentDef.modules);
+    }
+  }
+
   const csStudents = studentUserRecords
     .filter((student) => student.branchId === branches.cs)
-    .map((student) => studentIdByUser.get(student.userId))
-    .filter(Boolean);
+    .map((student) => ({ 
+      id: studentIdByUser.get(student.userId), 
+      userId: student.userId, 
+      attendance: studentAttendanceMap.get(student.userId),
+      modules: studentModulesMap.get(student.userId) || []
+    }))
+    .filter(s => s.id);
   const aiStudents = studentUserRecords
     .filter((student) => student.branchId === branches.ai)
-    .map((student) => studentIdByUser.get(student.userId))
-    .filter(Boolean);
+    .map((student) => ({ 
+      id: studentIdByUser.get(student.userId), 
+      userId: student.userId, 
+      attendance: studentAttendanceMap.get(student.userId),
+      modules: studentModulesMap.get(student.userId) || []
+    }))
+    .filter(s => s.id);
   const bizStudents = studentUserRecords
     .filter((student) => student.branchId === branches.biz)
-    .map((student) => studentIdByUser.get(student.userId))
-    .filter(Boolean);
-
-  const pastCsSession = sessionRowsAll.find((row) => Number(row.module_id) === modules.cs[0]);
-  const pastAiSession = sessionRowsAll.find((row) => Number(row.module_id) === modules.ai[0]);
-  const pastBizSession = sessionRowsAll.find((row) => Number(row.module_id) === modules.biz[1]);
-
-  if (pastCsSession) {
-    for (const sid of csStudents.slice(0, 3)) {
-      await pool.query(
-        "INSERT INTO attendance (session_id, student_id) VALUES (:sessionId, :studentId)",
-        { sessionId: pastCsSession.id, studentId: sid }
-      );
-      await pool.query(
-        `INSERT INTO session_feedback (session_id, student_id, understanding_score, question)
-         VALUES (:sessionId, :studentId, :score, :question)`,
-        {
-          sessionId: pastCsSession.id,
-          studentId: sid,
-          score: 7 + (Number(sid) % 3),
-          question: "Requesting more examples on architecture tradeoffs",
-        }
-      );
-    }
-  }
-
-  if (pastAiSession) {
-    for (const sid of aiStudents.slice(0, 3)) {
-      await pool.query(
-        "INSERT INTO attendance (session_id, student_id) VALUES (:sessionId, :studentId)",
-        { sessionId: pastAiSession.id, studentId: sid }
-      );
-    }
-  }
-
-  if (pastBizSession) {
-    for (const sid of bizStudents.slice(0, 2)) {
-      await pool.query(
-        "INSERT INTO attendance (session_id, student_id) VALUES (:sessionId, :studentId)",
-        { sessionId: pastBizSession.id, studentId: sid }
-      );
-    }
-  }
+    .map((student) => ({ 
+      id: studentIdByUser.get(student.userId), 
+      userId: student.userId, 
+      attendance: studentAttendanceMap.get(student.userId),
+      modules: studentModulesMap.get(student.userId) || []
+    }))
+    .filter(s => s.id);
 
   const csTeam = csStudents.slice(0, 3);
   const aiTeam = aiStudents.slice(0, 3);
-  const bizTeam = bizStudents.slice(0, 3);
+  const bizTeam = bizStudents.slice(0, 2);
+
+  // Generate realistic attendance records based on individual student attendance rates
+  for (const session of sessionRowsAll) {
+    const moduleId = Number(session.module_id);
+    let enrolledStudents = [];
+    
+    if (modules.cs.includes(moduleId)) {
+      const moduleIndex = modules.cs.indexOf(moduleId);
+      // Only get CS students enrolled in this specific module
+      enrolledStudents = csStudents.filter(s => s.modules && s.modules.includes(moduleIndex));
+      
+      for (const student of enrolledStudents) {
+        if (Math.random() < student.attendance) {
+          await pool.query(
+            "INSERT INTO attendance (session_id, student_id) VALUES (:sessionId, :studentId)",
+            { sessionId: session.id, studentId: student.id }
+          );
+          // 60% of attending students provide feedback
+          if (Math.random() < 0.6) {
+            await pool.query(
+              `INSERT INTO session_feedback (session_id, student_id, understanding_score, question)
+               VALUES (:sessionId, :studentId, :score, :question)`,
+              {
+                sessionId: session.id,
+                studentId: student.id,
+                score: 6 + Math.floor(Math.random() * 4),
+                question: ["Requesting more examples", "Need clarification on advanced topics", "Can we discuss implementation details?"][Math.floor(Math.random() * 3)],
+              }
+            );
+          }
+        }
+      }
+    } else if (modules.ai.includes(moduleId)) {
+      const moduleIndex = modules.ai.indexOf(moduleId);
+      // Only get AI students enrolled in this specific module
+      enrolledStudents = aiStudents.filter(s => s.modules && s.modules.includes(moduleIndex));
+      
+      for (const student of enrolledStudents) {
+        if (Math.random() < student.attendance) {
+          await pool.query(
+            "INSERT INTO attendance (session_id, student_id) VALUES (:sessionId, :studentId)",
+            { sessionId: session.id, studentId: student.id }
+          );
+          // 50% of attending students provide feedback
+          if (Math.random() < 0.5) {
+            await pool.query(
+              `INSERT INTO session_feedback (session_id, student_id, understanding_score, question)
+               VALUES (:sessionId, :studentId, :score, :question)`,
+              {
+                sessionId: session.id,
+                studentId: student.id,
+                score: 5 + Math.floor(Math.random() * 5),
+                question: ["Interested in research applications", "How does this apply in practice?", "Can you explain the math more?"][Math.floor(Math.random() * 3)],
+              }
+            );
+          }
+        }
+      }
+    } else if (modules.biz.includes(moduleId)) {
+      const moduleIndex = modules.biz.indexOf(moduleId);
+      // Only get Business students enrolled in this specific module
+      enrolledStudents = bizStudents.filter(s => s.modules && s.modules.includes(moduleIndex));
+      
+      for (const student of enrolledStudents) {
+        if (Math.random() < student.attendance) {
+          await pool.query(
+            "INSERT INTO attendance (session_id, student_id) VALUES (:sessionId, :studentId)",
+            { sessionId: session.id, studentId: student.id }
+          );
+          // 65% of attending students provide feedback
+          if (Math.random() < 0.65) {
+            await pool.query(
+              `INSERT INTO session_feedback (session_id, student_id, understanding_score, question)
+               VALUES (:sessionId, :studentId, :score, :question)`,
+              {
+                sessionId: session.id,
+                studentId: student.id,
+                score: 7 + Math.floor(Math.random() * 3),
+                question: ["Real-world case studies?", "How to implement this strategy?", "Any industry best practices?"][Math.floor(Math.random() * 3)],
+              }
+            );
+          }
+        }
+      }
+    }
+  }
 
   const [p1] = await pool.query(
     `INSERT INTO pfe_projects
@@ -518,7 +598,7 @@ async function seedPresentationData() {
      VALUES (:branchId, :ownerId, :coordId, :name, :members, :github, :report, :demo, :deadlineAt, :grade)`,
     {
       branchId: branches.cs,
-      ownerId: csTeam[0],
+      ownerId: csTeam[0].id,
       coordId: coordinatorTeacherIds.cs,
       name: "[PRES] Campus Space Planner",
       members: "Presentation Student CS One, Presentation Student CS Two, Presentation Student CS Three",
@@ -526,18 +606,37 @@ async function seedPresentationData() {
       report: "https://drive.google.com/file/d/PRESCSREPORT/view",
       demo: "https://drive.google.com/file/d/PRESCSDEMO/view",
       deadlineAt: `${dateShift(7)} 23:59:00`,
-      grade: 18.0,
+      grade: 18.5,
     }
   );
   const csProjectId = Number(p1.insertId);
 
   const [p2] = await pool.query(
     `INSERT INTO pfe_projects
-     (branch_id, student_owner_id, coordinator_teacher_id, name, members, github_link, report_path, demo_video_path, deadline_at)
-     VALUES (:branchId, :ownerId, :coordId, :name, :members, :github, :report, :demo, :deadlineAt)`,
+     (branch_id, student_owner_id, coordinator_teacher_id, name, members, github_link, report_path, demo_video_path, deadline_at, grade)
+     VALUES (:branchId, :ownerId, :coordId, :name, :members, :github, :report, :demo, :deadlineAt, :grade)`,
+    {
+      branchId: branches.cs,
+      ownerId: csTeam[1].id,
+      coordId: coordinatorTeacherIds.cs,
+      name: "[PRES] Microservices Framework",
+      members: "Presentation Student CS Four, Presentation Student CS Five",
+      github: "https://github.com/example/pres-microservices-framework",
+      report: "https://drive.google.com/file/d/PRESCSMS/view",
+      demo: "https://drive.google.com/file/d/PRESCSMSDEMO/view",
+      deadlineAt: `${dateShift(7)} 23:59:00`,
+      grade: 16.0,
+    }
+  );
+  const csProjectId2 = Number(p2.insertId);
+
+  const [p3] = await pool.query(
+    `INSERT INTO pfe_projects
+     (branch_id, student_owner_id, coordinator_teacher_id, name, members, github_link, report_path, demo_video_path, deadline_at, grade)
+     VALUES (:branchId, :ownerId, :coordId, :name, :members, :github, :report, :demo, :deadlineAt, :grade)`,
     {
       branchId: branches.ai,
-      ownerId: aiTeam[0],
+      ownerId: aiTeam[0].id,
       coordId: coordinatorTeacherIds.ai,
       name: "[PRES] Student Success Predictor",
       members: "Presentation Student AI One, Presentation Student AI Two, Presentation Student AI Three",
@@ -545,43 +644,98 @@ async function seedPresentationData() {
       report: "https://drive.google.com/file/d/PRESAIREPORT/view",
       demo: "https://drive.google.com/file/d/PRESAIDEMO/view",
       deadlineAt: `${dateShift(10)} 23:59:00`,
+      grade: 17.5,
     }
   );
-  const aiProjectId = Number(p2.insertId);
+  const aiProjectId = Number(p3.insertId);
 
-  const [p3] = await pool.query(
+  const [p4] = await pool.query(
     `INSERT INTO pfe_projects
-     (branch_id, student_owner_id, coordinator_teacher_id, name, members, github_link, deadline_at)
-     VALUES (:branchId, :ownerId, :coordId, :name, :members, :github, :deadlineAt)`,
+     (branch_id, student_owner_id, coordinator_teacher_id, name, members, github_link, deadline_at, grade)
+     VALUES (:branchId, :ownerId, :coordId, :name, :members, :github, :deadlineAt, :grade)`,
+    {
+      branchId: branches.ai,
+      ownerId: aiTeam[1].id,
+      coordId: coordinatorTeacherIds.ai,
+      name: "[PRES] Image Classification Suite",
+      members: "Presentation Student AI Four",
+      github: "https://github.com/example/pres-image-classification",
+      deadlineAt: `${dateShift(10)} 23:59:00`,
+      grade: 14.5,
+    }
+  );
+  const aiProjectId2 = Number(p4.insertId);
+
+  const [p5] = await pool.query(
+    `INSERT INTO pfe_projects
+     (branch_id, student_owner_id, coordinator_teacher_id, name, members, github_link, deadline_at, grade)
+     VALUES (:branchId, :ownerId, :coordId, :name, :members, :github, :deadlineAt, :grade)`,
     {
       branchId: branches.biz,
-      ownerId: bizTeam[0],
+      ownerId: bizTeam[0].id,
       coordId: coordinatorTeacherIds.biz,
       name: "[PRES] SME Credit Risk Explorer",
-      members: "Presentation Student Biz One, Presentation Student Biz Two, Presentation Student Biz Three",
+      members: "Presentation Student Biz One, Presentation Student Biz Two",
       github: "https://github.com/example/pres-credit-risk-explorer",
       deadlineAt: `${dateShift(12)} 23:59:00`,
+      grade: 16.5,
     }
   );
-  const bizProjectId = Number(p3.insertId);
+  const bizProjectId = Number(p5.insertId);
+
+  const [p6] = await pool.query(
+    `INSERT INTO pfe_projects
+     (branch_id, student_owner_id, coordinator_teacher_id, name, members, deadline_at, grade)
+     VALUES (:branchId, :ownerId, :coordId, :name, :members, :deadlineAt, :grade)`,
+    {
+      branchId: branches.biz,
+      ownerId: bizTeam[1].id,
+      coordId: coordinatorTeacherIds.biz,
+      name: "[PRES] Market Trend Analysis",
+      members: "Presentation Student Biz Three",
+      deadlineAt: `${dateShift(12)} 23:59:00`,
+      grade: 15.0,
+    }
+  );
+  const bizProjectId2 = Number(p6.insertId);
 
   if (await tableExists("pfe_project_students")) {
-    for (const sid of csTeam) {
+    for (const student of csTeam) {
       await pool.query(
         "INSERT INTO pfe_project_students (project_id, student_id) VALUES (:projectId, :studentId)",
-        { projectId: csProjectId, studentId: sid }
+        { projectId: csProjectId, studentId: student.id }
       );
     }
-    for (const sid of aiTeam) {
+    for (const student of csStudents.slice(3, 5)) {
+      if (student) {
+        await pool.query(
+          "INSERT INTO pfe_project_students (project_id, student_id) VALUES (:projectId, :studentId)",
+          { projectId: csProjectId2, studentId: student.id }
+        );
+      }
+    }
+    for (const student of aiTeam) {
       await pool.query(
         "INSERT INTO pfe_project_students (project_id, student_id) VALUES (:projectId, :studentId)",
-        { projectId: aiProjectId, studentId: sid }
+        { projectId: aiProjectId, studentId: student.id }
       );
     }
-    for (const sid of bizTeam) {
+    if (aiStudents[3]) {
       await pool.query(
         "INSERT INTO pfe_project_students (project_id, student_id) VALUES (:projectId, :studentId)",
-        { projectId: bizProjectId, studentId: sid }
+        { projectId: aiProjectId2, studentId: aiStudents[3].id }
+      );
+    }
+    for (const student of bizTeam) {
+      await pool.query(
+        "INSERT INTO pfe_project_students (project_id, student_id) VALUES (:projectId, :studentId)",
+        { projectId: bizProjectId, studentId: student.id }
+      );
+    }
+    if (bizStudents[2]) {
+      await pool.query(
+        "INSERT INTO pfe_project_students (project_id, student_id) VALUES (:projectId, :studentId)",
+        { projectId: bizProjectId2, studentId: bizStudents[2].id }
       );
     }
   }
@@ -589,8 +743,13 @@ async function seedPresentationData() {
   const juryPairs = [
     [csProjectId, juryTeacherIds.one],
     [csProjectId, juryTeacherIds.two],
+    [csProjectId2, juryTeacherIds.one],
     [aiProjectId, juryTeacherIds.two],
+    [aiProjectId, juryTeacherIds.three],
+    [aiProjectId2, juryTeacherIds.two],
     [bizProjectId, juryTeacherIds.three],
+    [bizProjectId, juryTeacherIds.one],
+    [bizProjectId2, juryTeacherIds.three],
   ];
   for (const [projectId, teacherId] of juryPairs) {
     await pool.query(
@@ -603,7 +762,10 @@ async function seedPresentationData() {
     `INSERT INTO announcements (created_by, title, message)
      VALUES (:adminId, :title1, :msg1),
             (:adminId, :title2, :msg2),
-            (:adminId, :title3, :msg3)`,
+            (:adminId, :title3, :msg3),
+            (:adminId, :title4, :msg4),
+            (:adminId, :title5, :msg5),
+            (:adminId, :title6, :msg6)`,
     {
       adminId: adminUserId,
       title1: "[PRES] Semester Kickoff",
@@ -612,6 +774,12 @@ async function seedPresentationData() {
       msg2: "Please review attendance and feedback metrics in your dashboards.",
       title3: "[PRES] PFE Defense Window",
       msg3: "Jury members can now review submissions and submit grades.",
+      title4: "[PRES] Module Registration Update",
+      msg4: "New module registration periods are now open for next semester.",
+      title5: "[PRES] System Maintenance Notice",
+      msg5: "Scheduled maintenance on database systems completed successfully.",
+      title6: "[PRES] Academic Excellence Awards",
+      msg6: "Congratulations to all students achieving high attendance records.",
     }
   );
 

@@ -295,8 +295,9 @@ export async function getAdminOverview(req, res, next) {
     const [branches] = await pool.query("SELECT COUNT(*) AS total FROM branches");
 
     const [attendance] = await pool.query(
-      `SELECT DATE_FORMAT(marked_at, '%Y-%m') AS month, COUNT(*) AS total
+      `SELECT DATE_FORMAT(sessions.session_date, '%Y-%m') AS month, COUNT(*) AS total
        FROM attendance
+       JOIN sessions ON sessions.id = attendance.session_id
        GROUP BY month
        ORDER BY month DESC
        LIMIT 6`

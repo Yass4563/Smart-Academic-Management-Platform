@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Users, BookOpen, Building2, GraduationCap, TrendingUp, Megaphone } from 'lucide-react';
+import { Users, BookOpen, Building2, GraduationCap, Megaphone } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useAuth } from '../../lib/auth';
 import { createAnnouncement, getAdminOverview, getAnnouncements } from '../../lib/api';
@@ -80,10 +80,6 @@ export function Overview() {
                 <div>
                   <p className="text-sm text-gray-600 mb-1">{stat.label}</p>
                   <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
-                  <div className="flex items-center gap-1 mt-2">
-                    <TrendingUp className="w-4 h-4 text-green-600" />
-                    <span className="text-sm text-gray-500">Updated live</span>
-                  </div>
                 </div>
                 <div className={`${stat.color} p-3 rounded-lg`}>
                   <Icon className="w-6 h-6 text-white" />

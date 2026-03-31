@@ -502,9 +502,10 @@ async function seedPresentationData() {
     }))
     .filter(s => s.id);
 
-  const csTeam = csStudents.slice(0, 3);
-  const aiTeam = aiStudents.slice(0, 3);
-  const bizTeam = bizStudents.slice(0, 2);
+  // Create smaller teams, leaving most students unassigned for demo purposes
+  const csTeam = csStudents.slice(0, 2);
+  const aiTeam = aiStudents.slice(0, 1);
+  const bizTeam = bizStudents.slice(0, 1);
 
   // Generate realistic attendance records based on individual student attendance rates
   for (const session of sessionRowsAll) {
@@ -601,7 +602,7 @@ async function seedPresentationData() {
       ownerId: csTeam[0].id,
       coordId: coordinatorTeacherIds.cs,
       name: "[PRES] Campus Space Planner",
-      members: "Presentation Student CS One, Presentation Student CS Two, Presentation Student CS Three",
+      members: "Presentation Student CS One, Presentation Student CS Two",
       github: "https://github.com/example/pres-campus-space-planner",
       report: "https://drive.google.com/file/d/PRESCSREPORT/view",
       demo: "https://drive.google.com/file/d/PRESCSDEMO/view",
@@ -616,30 +617,11 @@ async function seedPresentationData() {
      (branch_id, student_owner_id, coordinator_teacher_id, name, members, github_link, report_path, demo_video_path, deadline_at, grade)
      VALUES (:branchId, :ownerId, :coordId, :name, :members, :github, :report, :demo, :deadlineAt, :grade)`,
     {
-      branchId: branches.cs,
-      ownerId: csTeam[1].id,
-      coordId: coordinatorTeacherIds.cs,
-      name: "[PRES] Microservices Framework",
-      members: "Presentation Student CS Four, Presentation Student CS Five",
-      github: "https://github.com/example/pres-microservices-framework",
-      report: "https://drive.google.com/file/d/PRESCSMS/view",
-      demo: "https://drive.google.com/file/d/PRESCSMSDEMO/view",
-      deadlineAt: `${dateShift(7)} 23:59:00`,
-      grade: 16.0,
-    }
-  );
-  const csProjectId2 = Number(p2.insertId);
-
-  const [p3] = await pool.query(
-    `INSERT INTO pfe_projects
-     (branch_id, student_owner_id, coordinator_teacher_id, name, members, github_link, report_path, demo_video_path, deadline_at, grade)
-     VALUES (:branchId, :ownerId, :coordId, :name, :members, :github, :report, :demo, :deadlineAt, :grade)`,
-    {
       branchId: branches.ai,
       ownerId: aiTeam[0].id,
       coordId: coordinatorTeacherIds.ai,
       name: "[PRES] Student Success Predictor",
-      members: "Presentation Student AI One, Presentation Student AI Two, Presentation Student AI Three",
+      members: "Presentation Student AI One",
       github: "https://github.com/example/pres-student-success-predictor",
       report: "https://drive.google.com/file/d/PRESAIREPORT/view",
       demo: "https://drive.google.com/file/d/PRESAIDEMO/view",
@@ -647,26 +629,9 @@ async function seedPresentationData() {
       grade: 17.5,
     }
   );
-  const aiProjectId = Number(p3.insertId);
+  const aiProjectId = Number(p2.insertId);
 
-  const [p4] = await pool.query(
-    `INSERT INTO pfe_projects
-     (branch_id, student_owner_id, coordinator_teacher_id, name, members, github_link, deadline_at, grade)
-     VALUES (:branchId, :ownerId, :coordId, :name, :members, :github, :deadlineAt, :grade)`,
-    {
-      branchId: branches.ai,
-      ownerId: aiTeam[1].id,
-      coordId: coordinatorTeacherIds.ai,
-      name: "[PRES] Image Classification Suite",
-      members: "Presentation Student AI Four",
-      github: "https://github.com/example/pres-image-classification",
-      deadlineAt: `${dateShift(10)} 23:59:00`,
-      grade: 14.5,
-    }
-  );
-  const aiProjectId2 = Number(p4.insertId);
-
-  const [p5] = await pool.query(
+  const [p3] = await pool.query(
     `INSERT INTO pfe_projects
      (branch_id, student_owner_id, coordinator_teacher_id, name, members, github_link, deadline_at, grade)
      VALUES (:branchId, :ownerId, :coordId, :name, :members, :github, :deadlineAt, :grade)`,
@@ -675,29 +640,13 @@ async function seedPresentationData() {
       ownerId: bizTeam[0].id,
       coordId: coordinatorTeacherIds.biz,
       name: "[PRES] SME Credit Risk Explorer",
-      members: "Presentation Student Biz One, Presentation Student Biz Two",
+      members: "Presentation Student Biz One",
       github: "https://github.com/example/pres-credit-risk-explorer",
       deadlineAt: `${dateShift(12)} 23:59:00`,
       grade: 16.5,
     }
   );
-  const bizProjectId = Number(p5.insertId);
-
-  const [p6] = await pool.query(
-    `INSERT INTO pfe_projects
-     (branch_id, student_owner_id, coordinator_teacher_id, name, members, deadline_at, grade)
-     VALUES (:branchId, :ownerId, :coordId, :name, :members, :deadlineAt, :grade)`,
-    {
-      branchId: branches.biz,
-      ownerId: bizTeam[1].id,
-      coordId: coordinatorTeacherIds.biz,
-      name: "[PRES] Market Trend Analysis",
-      members: "Presentation Student Biz Three",
-      deadlineAt: `${dateShift(12)} 23:59:00`,
-      grade: 15.0,
-    }
-  );
-  const bizProjectId2 = Number(p6.insertId);
+  const bizProjectId = Number(p3.insertId);
 
   if (await tableExists("pfe_project_students")) {
     for (const student of csTeam) {
@@ -706,24 +655,10 @@ async function seedPresentationData() {
         { projectId: csProjectId, studentId: student.id }
       );
     }
-    for (const student of csStudents.slice(3, 5)) {
-      if (student) {
-        await pool.query(
-          "INSERT INTO pfe_project_students (project_id, student_id) VALUES (:projectId, :studentId)",
-          { projectId: csProjectId2, studentId: student.id }
-        );
-      }
-    }
     for (const student of aiTeam) {
       await pool.query(
         "INSERT INTO pfe_project_students (project_id, student_id) VALUES (:projectId, :studentId)",
         { projectId: aiProjectId, studentId: student.id }
-      );
-    }
-    if (aiStudents[3]) {
-      await pool.query(
-        "INSERT INTO pfe_project_students (project_id, student_id) VALUES (:projectId, :studentId)",
-        { projectId: aiProjectId2, studentId: aiStudents[3].id }
       );
     }
     for (const student of bizTeam) {
@@ -732,24 +667,15 @@ async function seedPresentationData() {
         { projectId: bizProjectId, studentId: student.id }
       );
     }
-    if (bizStudents[2]) {
-      await pool.query(
-        "INSERT INTO pfe_project_students (project_id, student_id) VALUES (:projectId, :studentId)",
-        { projectId: bizProjectId2, studentId: bizStudents[2].id }
-      );
-    }
   }
 
   const juryPairs = [
     [csProjectId, juryTeacherIds.one],
     [csProjectId, juryTeacherIds.two],
-    [csProjectId2, juryTeacherIds.one],
     [aiProjectId, juryTeacherIds.two],
     [aiProjectId, juryTeacherIds.three],
-    [aiProjectId2, juryTeacherIds.two],
     [bizProjectId, juryTeacherIds.three],
     [bizProjectId, juryTeacherIds.one],
-    [bizProjectId2, juryTeacherIds.three],
   ];
   for (const [projectId, teacherId] of juryPairs) {
     await pool.query(
